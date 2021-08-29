@@ -5,20 +5,23 @@ import numpy as np
 
 
 class Tournament:
-    def __init__(self, tournament_id):
-        raw_results = get_tournament_results(tournament_id, recaps=True)
-        self.data = pd.DataFrame([
-            {
-                'team_id': t['team']['id'],
-                'name': t['team']['name'],
-                'current_name': t['current']['name'],
-                'questionsTotal': t['questionsTotal'],
-                'position': t['position'],
-                'n_base': sum(player['flag'] in {'Б', 'К'} for player in t['teamMembers']),
-                'n_legs': sum(player['flag'] not in {'Б', 'К'} for player in t['teamMembers']),
-                'teamMembers': [x['player']['id'] for x in t['teamMembers']]
-            } for t in raw_results if t['position'] != 9999
-        ])
+    def __init__(self, tournament_id, teams_dict=None):
+        if teams_dict:
+            self.data = pd.DataFrame(teams_dict.values())
+        else:
+            raw_results = get_tournament_results(tournament_id, recaps=True)
+            self.data = pd.DataFrame([
+                {
+                    'team_id': t['team']['id'],
+                    'name': t['team']['name'],
+                    'current_name': t['current']['name'],
+                    'questionsTotal': t['questionsTotal'],
+                    'position': t['position'],
+                    'n_base': sum(player['flag'] in {'Б', 'К'} for player in t['teamMembers']),
+                    'n_legs': sum(player['flag'] not in {'Б', 'К'} for player in t['teamMembers']),
+                    'teamMembers': [x['player']['id'] for x in t['teamMembers']]
+                } for t in raw_results if t['position'] != 9999
+            ])
         self.data['heredity'] = (self.data.n_base > 3) | (self.data.n_base == 3) & \
                                 (self.data.name == self.data.current_name)
 
