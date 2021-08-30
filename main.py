@@ -42,12 +42,25 @@ def get_tournament_and_teams(cursor, tournament_id: int) -> dict[int, list[int]]
 def calc_release(teams, tournaments):
 	pass
 
-def write_initial_release(release_id: int):
+def write_initial_release(cursor):
+	release_id = 1020
 	release_json = util.url2json(f'http://api.rating.chgk.net/releases/{release_id}')
-	release_date = datetime.fromisoformat(release_json['date']).date
-	
+	release_date = datetime.datetime.fromisoformat(release_json['date']).date()
+	teams_pd = util.get_teams_release(release_id)
+	cursor.execute(f'UPDATE ratingb.release_details SET updated_at=NOW() WHERE date=\'{release_date.isoformat()}\';')
+	if cursor.rowcount == 0:
+		cursor.execute(f'INSERT INTO ratingb.release_details (date, updated_at) VALUES (\'{release_date.isoformat()}\', NOW());')
+	cursor.execute(f'SELECT id FROM ratingb.release_details WHERE date=\'{release_date.isoformat()}\';')
+	release_details_id = cursor.fetchone()
+	if release_details_id <= 0:
+		print(f'Wrong release_details.id for {release_date.isoformat()}: {release_id}!')
+		return
+	cursor.execute(f'DELETE FROM ratingb.releases WHERE release_details_id={release_id}')
+	for team in teams_pd:
+		cursor.execute(f'INSERT INTO ratingb.releases (team_id, release_details_id, rating, rating_change) VALUES ({team["Ид"]}, {release_details_id}, {team["Рейтинг"]}, 0);')
+	print(f'Initial release is loaded: {len(teams_pd)} teams found.')
 
 db = Postgres(url=private_data.postgres_url)
 
 with db.get_cursor() as cursor:
-	get_tournament_and_teams(cursor, 4791)
+	write_initial_release(cursor)
