@@ -1,5 +1,7 @@
 from rating_api.release import get_teams_release
-from rating.tools import calc_tech_rating
+from egor.tools import calc_tech_rating
+from egor.tournament import Tournament
+from egor.players import PlayerRating
 import pandas as pd
 import numpy as np
 
@@ -42,3 +44,11 @@ class TeamRating:
 
     def get_trb(self, team_id):
         return self.data.trb.get(team_id, 0)
+
+    def add_new_teams(self, tournament: Tournament, player_rating: PlayerRating):
+        new_teams = tournament.data[~tournament.data.team_id.isin(set(self.data.index)),
+                                    ['team_id', 'baseTeamMembers']].set_index("team_id")
+        new_teams['rt'] = new_teams.baseTeamMembers.map(lambda x: player_rating.calc_rt(x, self.q))
+        new_teams['rating'] = new_teams.rt * 0.8
+        self.data = self.data.append(new_teams.drop("baseTeamMembers", axis=1))
+
