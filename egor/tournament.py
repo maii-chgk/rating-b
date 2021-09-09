@@ -1,5 +1,5 @@
-from rating_api.tournaments import get_tournament_results
-from rating.tools import calc_tech_rating, rolling_window, calc_score_real, calc_bonus_raw
+# from rating_api.tournaments import get_tournament_results
+from egor.tools import calc_tech_rating, rolling_window, calc_score_real, calc_bonus_raw
 import pandas as pd
 import numpy as np
 
@@ -9,7 +9,7 @@ class Tournament:
         if teams_dict:
             self.data = pd.DataFrame(teams_dict.values())
         else:
-            raw_results = get_tournament_results(tournament_id, recaps=True)
+            # raw_results = get_tournament_results(tournament_id, recaps=True)
             self.data = pd.DataFrame([
                 {
                     'team_id': t['team']['id'],
