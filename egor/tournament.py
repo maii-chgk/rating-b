@@ -2,6 +2,7 @@
 from egor.tools import calc_tech_rating, rolling_window, calc_score_real, calc_bonus_raw
 import pandas as pd
 import numpy as np
+from typing import Tuple
 
 
 class Tournament:
@@ -55,3 +56,9 @@ class Tournament:
         self.data.loc[self.data.heredity & (self.data.n_legs > 2), 'bonus'] *= \
             (2 / self.data[self.data.heredity & (self.data.n_legs > 2)]['n_legs'])
         self.data.sort_values(by=['position', 'name'], inplace=True)
+
+    def apply_bonuses(self, team_rating, player_rating) -> Tuple['TeamRating', 'PlayerRating']:
+        for i, team in self.data.iterrows():
+            if team['n_base'] >= 3:
+                team_rating[i] += team['bonus']
+        return team_rating, player_rating

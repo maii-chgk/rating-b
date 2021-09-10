@@ -1,11 +1,13 @@
-from rating_api.release import get_players_release
+from api_util import get_players_release
 from egor.tools import calc_tech_rating
 import pandas as pd
 
 
 class PlayerRating:
-    def __init__(self, release_id=None, file_path=None):
+    def __init__(self, release_id=None, file_path=None, players_list=None):
         self.data = pd.DataFrame()
+        if players_list:
+            self.data = pd.DataFrame(players_list)
         if release_id:
             raw_rating = get_players_release(release_id)
             raw_rating = raw_rating[[' ИД', 'ИД базовой команды', 'Рейтинг']]

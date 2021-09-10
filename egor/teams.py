@@ -1,4 +1,4 @@
-from rating_api.release import get_teams_release
+from api_util import get_teams_release
 from egor.tools import calc_tech_rating
 from egor.tournament import Tournament
 from egor.players import PlayerRating
@@ -7,17 +7,20 @@ import numpy as np
 
 
 class TeamRating:
-    def __init__(self, release_id=None, filename=None):
-        if not (release_id or filename):
+    def __init__(self, release_id=None, filename=None, teams_list=None):
+        if not (release_id or filename or teams_dict):
             raise Exception('provide release id or file with rating!')
         self.q = 1
-        if release_id:
-            raw_rating = get_teams_release(release_id)
+        if teams_list:
+            self.data = pd.DataFrame(teams_list)
         else:
-            raw_rating = pd.read_csv(filename)
-        raw_rating = raw_rating[['Ид', 'Рейтинг', 'ТРК по БС']]
-        raw_rating.columns = ['team_id', 'rating', 'trb']
-        self.data = raw_rating.set_index('team_id')
+            if release_id:
+                raw_rating = get_teams_release(release_id)
+            else:
+                raw_rating = pd.read_csv(filename)
+            raw_rating = raw_rating[['Ид', 'Рейтинг', 'ТРК по БС']]
+            raw_rating.columns = ['team_id', 'rating', 'trb']
+            self.data = raw_rating.set_index('team_id')
         self.c = self.calc_c()
 
     def update_q(self, players_release):
