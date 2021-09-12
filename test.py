@@ -19,5 +19,3 @@ with db.get_cursor() as cursor:
 
 for t_name_table in list_tables:
 	print(str(t_name_table) + "\n")
-
-SELECT table_schema, table_name FROM information_schema.tables ORDER BY table_schema, table_name;

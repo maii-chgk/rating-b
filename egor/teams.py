@@ -8,7 +8,7 @@ import numpy as np
 
 class TeamRating:
     def __init__(self, release_id=None, filename=None, teams_list=None):
-        if not (release_id or filename or teams_dict):
+        if not (release_id or filename or teams_list):
             raise Exception('provide release id or file with rating!')
         self.q = 1
         if teams_list:

@@ -2,28 +2,28 @@
 from egor.tools import calc_tech_rating, rolling_window, calc_score_real, calc_bonus_raw
 import pandas as pd
 import numpy as np
-from typing import Tuple
-
+from typing import Any, Tuple
 
 class Tournament:
     def __init__(self, tournament_id, teams_dict=None):
+        self.id = tournament_id
         if teams_dict:
             self.data = pd.DataFrame(teams_dict.values())
-        else:
-            # raw_results = get_tournament_results(tournament_id, recaps=True)
-            self.data = pd.DataFrame([
-                {
-                    'team_id': t['team']['id'],
-                    'name': t['team']['name'],
-                    'current_name': t['current']['name'],
-                    'questionsTotal': t['questionsTotal'],
-                    'position': t['position'],
-                    'n_base': sum(player['flag'] in {'Б', 'К'} for player in t['teamMembers']),
-                    'n_legs': sum(player['flag'] not in {'Б', 'К'} for player in t['teamMembers']),
-                    'teamMembers': [x['player']['id'] for x in t['teamMembers']],
-                    'baseTeamMembers': [x['player']['id'] for x in t['teamMembers'] if x['flag'] in {'Б', 'К'}]
-                } for t in raw_results if t['position'] != 9999
-            ])
+        # else:
+        #     raw_results = get_tournament_results(tournament_id, recaps=True)
+        #     self.data = pd.DataFrame([
+        #         {
+        #             'team_id': t['team']['id'],
+        #             'name': t['team']['name'],
+        #             'current_name': t['current']['name'],
+        #             'questionsTotal': t['questionsTotal'],
+        #             'position': t['position'],
+        #             'n_base': sum(player['flag'] in {'Б', 'К'} for player in t['teamMembers']),
+        #             'n_legs': sum(player['flag'] not in {'Б', 'К'} for player in t['teamMembers']),
+        #             'teamMembers': [x['player']['id'] for x in t['teamMembers']],
+        #             'baseTeamMembers': [x['player']['id'] for x in t['teamMembers'] if x['flag'] in {'Б', 'К'}]
+        #         } for t in raw_results if t['position'] != 9999
+        #     ])
         self.data['heredity'] = (self.data.n_base > 3) | (self.data.n_base == 3) & \
                                 (self.data.name == self.data.current_name)
 
@@ -57,8 +57,10 @@ class Tournament:
             (2 / self.data[self.data.heredity & (self.data.n_legs > 2)]['n_legs'])
         self.data.sort_values(by=['position', 'name'], inplace=True)
 
-    def apply_bonuses(self, team_rating, player_rating) -> Tuple['TeamRating', 'PlayerRating']:
+    def apply_bonuses(self, team_rating, player_rating) -> Tuple[Any, Any]:
         for i, team in self.data.iterrows():
             if team['n_base'] >= 3:
-                team_rating[i] += team['bonus']
+                team_rating.data[i]['rating'] += team['bonus']
+            for player_id in team['teamMembers']:
+                player_rating[player_id]['top_bonuses'].append((self.id, team['bonus'], team['bonus']))
         return team_rating, player_rating
