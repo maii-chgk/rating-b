@@ -7,7 +7,7 @@ from typing import Any, Tuple
 class Tournament:
     def __init__(self, tournament_id, teams_dict=None):
         self.id = tournament_id
-        if teams_dict:
+        if teams_dict is not None:
             self.data = pd.DataFrame(teams_dict.values())
         # else:
         #     raw_results = get_tournament_results(tournament_id, recaps=True)

@@ -21,6 +21,7 @@ class TeamRating:
             raw_rating = raw_rating[['Ид', 'Рейтинг', 'ТРК по БС']]
             raw_rating.columns = ['team_id', 'rating', 'trb']
             self.data = raw_rating.set_index('team_id')
+            self.data['prev_rating'] = 0
         self.c = self.calc_c()
 
     def update_q(self, players_release):

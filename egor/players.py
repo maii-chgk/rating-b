@@ -11,12 +11,15 @@ class PlayerRating:
         self.data = pd.DataFrame()
         if players_list:
             self.data = pd.DataFrame(players_list)
-        if release_id:
+        elif release_id:
+            print(f'Creating PlayerRating from release_id {release_id}')
             raw_rating = get_players_release(release_id)
             raw_rating = raw_rating[[' ИД', 'ИД базовой команды', 'Рейтинг']]
             raw_rating.columns = ['player_id', 'base_team_id', 'rating']
             raw_rating.drop_duplicates(subset='player_id', inplace=True)
             self.data = raw_rating.set_index('player_id')
+            self.data['prev_rating'] = 0
+            self.data['top_bonuses'] = [[] for _ in range(len(self.data))]
         elif file_path:
             self.data = pd.DataFrame.from_csv(file_path, index_col=0)
 
@@ -42,3 +45,6 @@ class PlayerRating:
         def sum_ratings_now(v: List[Tuple[int, int, int]]) -> int:
             return sum(x[1] for x in v)
         self.data['rating'] = self.data['top_bonuses'].map(sum_ratings_now)
+
+    def fill_base_teams(self, base_teams: dict[int, int]):
+        self.data['base_team_id'] = self.data.index.map(base_teams.get)

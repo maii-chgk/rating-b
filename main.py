@@ -12,8 +12,8 @@ def import_release_from_chgkinfo(release_id: int) -> Tuple[teams.TeamRating, pla
 	return api_util.get_players_release(release_id), api_util.get_teams_release(release_id)
 
 # Reads the data for given tournament including each team's players from 'public' schema.
-def get_tournament(cursor, tournament_id: int) -> tournament.Tournament:
-	cursor.execute(f'SELECT rteam.id f1, rp.id f2, otr.inRating, rteam.title, rr.team_title, rr.total, rr.position, o_r.flag '
+def get_tournament(cursor, tournament_id: int) -> Optional[tournament.Tournament]:
+	cursor.execute(f'SELECT rteam.id f1, rp.id f2, otr."inRating", rteam.title, rr.team_title, rr.total, rr.position, o_r.flag '
 		+ 'FROM public.rating_result rr, public."rating_result_teamMembers" rrt, public.rating_tournament rt, public.rating_team rteam, '
 		+ 'public.rating_player rp, public.rating_oldteamrating otr, public.rating_oldrating o_r '
 		+ f'WHERE rt.id={tournament_id} AND rr.tournament_id=rt.id AND rrt.result_id=rr.id AND rteam.id=rr.team_id AND rrt.player_id=rp.id AND otr.result_id=rr.id '
@@ -36,6 +36,9 @@ def get_tournament(cursor, tournament_id: int) -> tournament.Tournament:
 			teams[team_id]['n_base'] += 1
 		else:
 			teams[team_id]['n_legs'] += 1
+	print(f'Tournament id: {tournament_id}. teams: {len(teams)}')
+	if len(teams) == 0:
+		return None
 	return tournament.Tournament(tournament_id=tournament_id, teams_dict=teams)
 
 # Reads the teams rating for given release_details_id.
@@ -96,6 +99,7 @@ def get_release_id(cursor, schema: str, release_date: datetime.date) -> Optional
 	if not res:
 		print(f'No release with date {release_date} found in {schema}.release_details!')
 		return None
+	print(f'Release id with date {release_date}: {res[0]}')
 	return res[0]
 
 # Insert provided list of rows to provided table, 100 items for query
@@ -109,11 +113,11 @@ def dump_release(cursor, schema: str, release_date: datetime.date, team_rating: 
 
 	# TODO: We don't need to dump players with rating 0
 	cursor.execute(f'DELETE FROM {schema}.player_rating WHERE release_details_id={release_details_id};')
-	player_rows = [f'({player["player_id"]}, {release_details_id}, {player["rating"]}, {player["rating"] - player["prev_rating"]})' for _, player in player_rating.data.iterrows()]
+	player_rows = [f'({player_id}, {release_details_id}, {player["rating"]}, {player["rating"] - player["prev_rating"]})' for player_id, player in player_rating.data.iterrows()]
 	fast_insert(cursor, schema, 'player_rating', 'player_id, release_details_id, rating, rating_change', player_rows)
 
 	cursor.execute(f'DELETE FROM {schema}.releases WHERE release_details_id={release_details_id};')
-	team_rows = [f'({team["team_id"]}, {release_details_id}, {team["rating"]}, {team["rating"] - team["prev_rating"]})' for _, team in team_rating.data.iterrows()]
+	team_rows = [f'({team_id}, {release_details_id}, {team["rating"]}, {team["rating"] - team["prev_rating"]})' for team_id, team in team_rating.data.iterrows()]
 	fast_insert(cursor, schema, 'releases', 'team_id, release_details_id, rating, rating_change', team_rows)
 
 	cursor.execute(f'DELETE FROM {schema}.player_top_bonuses WHERE release_details_id={release_details_id};')
@@ -144,17 +148,24 @@ def mark_release_as_just_updated(cursor, schema: str, release_date: datetime.dat
 
 # Copies release (teams and players) with provided ID from chgk.info to provided schema in our DB
 def import_release(cursor, schema: str, release_id: int):
-	release_date = get_chgkinfo_release_date(release_id)
-	release_details_id = mark_release_as_just_updated(cursor, schema, release_date)
+	# player_rating, team_rating = import_release_from_chgkinfo(release_id)
+	team_rating = teams.TeamRating(release_id=release_id)
+	player_rating = players.PlayerRating(release_id=release_id)
+	print(f'player_rating cols:', [col for col in player_rating.data.columns])
 
-	team_rating, player_rating = import_release_from_chgkinfo(release_id)
+	release_date = get_chgkinfo_release_date(release_id)
 	dump_release(cursor, schema, release_date, team_rating, player_rating)
 	print(f'Loaded {len(team_rating.data)} teams and {len(player_rating.data)} players from release {release_date} (ID {release_id}).')
 
 # Loads tournaments from our DB that finish between given releases.
 def get_tournaments_for_release(cursor, old_release_date: datetime.date, new_release_date: datetime.date) -> List[tournament.Tournament]:
-	cursor.execute(f'SELECT id FROM public.rating_tournament WHERE end_datetime::date > \'{old_release_date.isoformat()}\' AND end_datetime::date <= \'{new_release_date.isoformat()}\' AND maiiRating;')
-	tournaments = [get_tournament(cursor, row['id']) for row in cursor.fetchall()]
+	cursor.execute(f'SELECT id FROM public.rating_tournament WHERE end_datetime::date >= \'{old_release_date.isoformat()}\' AND end_datetime::date < \'{new_release_date.isoformat()}\' AND "maiiRating";')
+	tournaments = []
+	# We want only tournaments with available results
+	for row in cursor.fetchall():
+		maybe_tournament = get_tournament(cursor, row[0])
+		if maybe_tournament is not None:
+			tournaments.append(maybe_tournament)
 	print(f'Tournaments between {old_release_date.isoformat()} and {new_release_date.isoformat()}: {len(tournaments)}')
 	return tournaments
 
@@ -163,6 +174,7 @@ def make_step(cursor, schema: str, old_release_date: datetime.date):
 	old_release_id = get_release_id(cursor, schema, old_release_date)
 	initial_teams = get_team_rating(cursor, schema, old_release_id)
 	initial_players = get_player_rating(cursor, schema, old_release_id)
+	initial_players.fill_base_teams(get_base_teams_for_players(old_release_date))
 
 	if old_release_date == datetime.date(2020, 4, 3):
 		new_release_date = datetime.date(2021, 9, 9)
@@ -177,8 +189,25 @@ def make_step(cursor, schema: str, old_release_date: datetime.date):
 	mark_release_as_just_updated(cursor, schema, new_release_date)
 	dump_release(cursor, schema, new_release_date, new_teams, new_players)
 
+def get_season_id(release_date: datetime.date) -> int:
+	cursor.execute(f'SELECT id FROM public.rating_season WHERE start::date <= \'{release_date.isoformat()}\' AND "end"::date >= \'{release_date.isoformat()}\';')
+	return cursor.fetchone()[0]
+
+# Returns the base team's id for each player for given date
+def get_base_teams_for_players(release_date: datetime.date) -> dict[int, int]:
+	res = {}
+	season_id = get_season_id(release_date)
+	cursor.execute(f'SELECT player_id, team_id FROM public.rating_basesquad '
+		+ f'WHERE season_id={season_id} AND start::date <= \'{release_date.isoformat()}\' AND "end"::date >= \'{release_date.isoformat()}\';')
+	for player_id, team_id in cursor.fetchall():
+		if player_id in res:
+			print(f'Player with id {player_id} is in base squads for both teams {team_id} and {res[player_id]} at {release_date} in season {season_id}!')
+		res[player_id] = team_id
+	return res
+
 db = Postgres(url=private_data.postgres_url)
 with db.get_cursor() as cursor:
-	make_step(cursor, 'ratingb', datetime.date(2020, 4, 3))
+	make_step(cursor, 'b', datetime.date(2020, 4, 3))
 	# write_initial_release(cursor, 1020) # 2014-09-smth
 	# write_initial_release(cursor, 1443) # 2020-04-03
+	# import_release(cursor, 'b', release_id=1443)
