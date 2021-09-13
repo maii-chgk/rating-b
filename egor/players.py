@@ -1,10 +1,11 @@
 from api_util import get_players_release
 from egor.tools import calc_tech_rating
 import pandas as pd
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 J = 0.99
 N_BEST_TOURNAMENTS = 7
+
 
 class PlayerRating:
     def __init__(self, release_id=None, file_path=None, players_list=None):
@@ -46,5 +47,5 @@ class PlayerRating:
             return sum(x[1] for x in v)
         self.data['rating'] = self.data['top_bonuses'].map(sum_ratings_now)
 
-    def fill_base_teams(self, base_teams: dict[int, int]):
+    def fill_base_teams(self, base_teams: Dict[int, int]):
         self.data['base_team_id'] = self.data.index.map(base_teams.get)

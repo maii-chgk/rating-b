@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from typing import Any, Tuple
 
+
 class Tournament:
     def __init__(self, tournament_id, teams_dict=None):
         self.id = tournament_id
