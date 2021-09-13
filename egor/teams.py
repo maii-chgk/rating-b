@@ -20,8 +20,9 @@ class TeamRating:
                 raw_rating = pd.read_csv(filename)
             raw_rating = raw_rating[['Ид', 'Рейтинг', 'ТРК по БС']]
             raw_rating.columns = ['team_id', 'rating', 'trb']
-            self.data = raw_rating.set_index('team_id')
-            self.data['prev_rating'] = 0
+            self.data = raw_rating
+        self.data.set_index('team_id', inplace=True)
+        self.data['prev_rating'] = 0
         self.c = self.calc_c()
 
     def update_q(self, players_release):
@@ -50,7 +51,7 @@ class TeamRating:
         return self.data.trb.get(team_id, 0)
 
     def add_new_teams(self, tournament: Tournament, player_rating: PlayerRating):
-        new_teams = tournament.data[~tournament.data.team_id.isin(set(self.data.index)),
+        new_teams = tournament.data.loc[~tournament.data.team_id.isin(set(self.data.index)),
                                     ['team_id', 'baseTeamMembers']].set_index("team_id")
         new_teams['rt'] = new_teams.baseTeamMembers.map(lambda x: player_rating.calc_rt(x, self.q))
         new_teams['rating'] = new_teams.rt * 0.8

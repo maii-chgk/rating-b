@@ -3,7 +3,6 @@ import copy
 import datetime
 from typing import Iterable, List, Optional, Tuple
 
-import private_data
 import api_util
 from egor import players, teams, tournament
 
@@ -30,10 +29,12 @@ def get_tournament(cursor, tournament_id: int) -> Optional[tournament.Tournament
 				'n_base': 0,
 				'n_legs': 0,
 				'teamMembers': [],
+				'baseTeamMembers': []
 			}
 		teams[team_id]['teamMembers'].append(player_id)
 		if flag in {'Б', 'К'}:
 			teams[team_id]['n_base'] += 1
+			teams[team_id]['baseTeamMembers'].append(player_id)
 		else:
 			teams[team_id]['n_legs'] += 1
 	print(f'Tournament id: {tournament_id}. teams: {len(teams)}')
