@@ -2,7 +2,7 @@ from tools import calc_tech_rating
 from api_util import get_players_release
 from db_tools import get_release_id, get_base_teams_for_players
 import pandas as pd
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 
 J = 0.99
 N_BEST_TOURNAMENTS = 7
@@ -40,9 +40,9 @@ class PlayerRating:
         for player_id, tournament_id, rating_now, rating_original in cursor.fetchall():
             if player_id in players_dict:
                 players_dict[player_id]['top_bonuses'].append((tournament_id, rating_now, rating_original))
-        self.data = pd.DataFrame(players_dict.values()).set_index("player_id")
-        base_teams = get_base_teams_for_players(cursor, release_date)
-        self.data['base_team_id'] = self.data.index.map(base_teams.get)
+        # adding base_team_ids
+        self.data = pd.DataFrame(players_dict.values()).set_index("player_id").join(
+            get_base_teams_for_players(cursor, release_date), how='left')
 
     def calc_rt(self, player_ids, q=None):
         """
