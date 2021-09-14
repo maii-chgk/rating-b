@@ -51,6 +51,15 @@ class PlayerRating:
         prs = self.data.rating.reindex(player_ids).fillna(0).values
         return calc_tech_rating(prs, q)
 
+    def calc_tech_rating_all_teams(self, q=None) -> pd.Series:
+        """
+        Рассчитывает технический рейтинг по базовому составу для всех команд, у которых есть
+        хотя бы один приписанный к ним игрок
+        :return: pd.Series, name: rating, index: base_team_id, values: техрейтинги
+        """
+        return self.data.groupby('base_team_id')['rating'].apply(
+            lambda x: calc_tech_rating(x.values, q))
+
     # Multiplies all existing bonuses by J_i constant
     def reduce_rating(self):
         def reduce_vector(v: List[Tuple[int, int, int]]) -> List[Tuple[int, int, int]]:

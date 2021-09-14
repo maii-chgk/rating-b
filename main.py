@@ -154,7 +154,8 @@ def get_tournaments_for_release(cursor, old_release_date: datetime.date, new_rel
 	return tournaments
 
 
-# Reads teams and players for provided dates; finds tournaments for next release; calculates new ratings and writes them to our DB.
+# Reads teams and players for provided dates; finds tournaments for next release; calculates
+# new ratings and writes them to our DB.
 def make_step(cursor, schema: str, old_release_date: datetime.date):
 	old_release_id = get_release_id(cursor, old_release_date, schema)
 	initial_teams = get_team_rating(cursor, schema, old_release_id)
