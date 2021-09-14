@@ -9,7 +9,7 @@ N_BEST_TOURNAMENTS = 7
 
 
 class PlayerRating:
-    def __init__(self, release_date=None, file_path=None, players_list=None,
+    def __init__(self, release_date=None, file_path=None,
                  cursor=None, schema='b', api_release_id=None):
         self.data = pd.DataFrame()
         if api_release_id:
@@ -25,11 +25,8 @@ class PlayerRating:
         if file_path:
             self.data = pd.DataFrame.from_csv(file_path, index_col=0)
             return
-        if players_list:
-            self.data = pd.DataFrame(players_list)
-            return
         if cursor is None:
-            raise Exception("no player_list, file_path or cursor is passed")
+            raise Exception("no file_path or cursor is passed")
         if release_date is None:
             raise Exception("no release_date is passed")
         release_id = get_release_id(cursor, release_date, schema)
@@ -43,7 +40,7 @@ class PlayerRating:
         for player_id, tournament_id, rating_now, rating_original in cursor.fetchall():
             if player_id in players_dict:
                 players_dict[player_id]['top_bonuses'].append((tournament_id, rating_now, rating_original))
-        self.data = pd.DataFrame(players_dict.values())
+        self.data = pd.DataFrame(players_dict.values()).set_index("player_id")
         base_teams = get_base_teams_for_players(cursor, release_date)
         self.data['base_team_id'] = self.data.index.map(base_teams.get)
 

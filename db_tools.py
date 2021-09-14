@@ -43,7 +43,7 @@ def get_base_teams_for_players(cursor, release_date: datetime.date) -> Dict[int,
     res = {}
     season_id = get_season_id(cursor, release_date)
     cursor.execute(f'SELECT player_id, team_id FROM public.rating_basesquad '
-        + f'WHERE season_id={season_id} AND start::date <= \'{release_date.isoformat()}\' AND "end"::date >= \'{release_date.isoformat()}\';')
+        + f'WHERE season_id={season_id} AND start::date <= \'{release_date.isoformat()}\';')
     for player_id, team_id in cursor.fetchall():
         if player_id in res:
             print(f'Player with id {player_id} is in base squads for both teams {team_id} and {res[player_id]} at {release_date} in season {season_id}!')
