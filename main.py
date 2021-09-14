@@ -6,6 +6,7 @@ from typing import Iterable, List, Optional, Tuple
 import api_util
 import teams
 import players
+import private_data
 import tournament
 
 from db_tools import get_release_id, fast_insert
