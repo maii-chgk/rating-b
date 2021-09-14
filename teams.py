@@ -56,3 +56,6 @@ class TeamRating:
         new_teams['rt'] = new_teams.baseTeamMembers.map(lambda x: player_rating.calc_rt(x, self.q))
         new_teams['rating'] = new_teams.rt * 0.8
         self.data = self.data.append(new_teams.drop("baseTeamMembers", axis=1))
+
+    def calc_trb(self, pr: PlayerRating):
+        self.data['trb'] = pr.calc_tech_rating_all_teams(q=self.q).fillna(0)

@@ -57,8 +57,10 @@ class PlayerRating:
         хотя бы один приписанный к ним игрок
         :return: pd.Series, name: rating, index: base_team_id, values: техрейтинги
         """
-        return self.data.groupby('base_team_id')['rating'].apply(
+        res = self.data.groupby('base_team_id')['rating'].apply(
             lambda x: calc_tech_rating(x.values, q))
+        res.name = "trb"
+        return res
 
     # Multiplies all existing bonuses by J_i constant
     def reduce_rating(self):
