@@ -2,14 +2,14 @@ from tools import calc_tech_rating
 from api_util import get_players_release
 from db_tools import get_release_id, get_base_teams_for_players
 import pandas as pd
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 
 J = 0.99
 N_BEST_TOURNAMENTS = 7
 
 
 class PlayerRating:
-    def __init__(self, release_date=None, file_path=None, players_list=None,
+    def __init__(self, release_date=None, file_path=None,
                  cursor=None, schema='b', api_release_id=None):
         self.data = pd.DataFrame()
         if api_release_id:
@@ -25,11 +25,8 @@ class PlayerRating:
         if file_path:
             self.data = pd.DataFrame.from_csv(file_path, index_col=0)
             return
-        if players_list:
-            self.data = pd.DataFrame(players_list)
-            return
         if cursor is None:
-            raise Exception("no player_list, file_path or cursor is passed")
+            raise Exception("no file_path or cursor is passed")
         if release_date is None:
             raise Exception("no release_date is passed")
         release_id = get_release_id(cursor, release_date, schema)
@@ -43,9 +40,9 @@ class PlayerRating:
         for player_id, tournament_id, rating_now, rating_original in cursor.fetchall():
             if player_id in players_dict:
                 players_dict[player_id]['top_bonuses'].append((tournament_id, rating_now, rating_original))
-        self.data = pd.DataFrame(players_dict.values())
-        base_teams = get_base_teams_for_players(cursor, release_date)
-        self.data['base_team_id'] = self.data.index.map(base_teams.get)
+        # adding base_team_ids
+        self.data = pd.DataFrame(players_dict.values()).set_index("player_id").join(
+            get_base_teams_for_players(cursor, release_date), how='left')
 
     def calc_rt(self, player_ids, q=None):
         """
@@ -53,6 +50,17 @@ class PlayerRating:
         """
         prs = self.data.rating.reindex(player_ids).fillna(0).values
         return calc_tech_rating(prs, q)
+
+    def calc_tech_rating_all_teams(self, q=None) -> pd.Series:
+        """
+        Рассчитывает технический рейтинг по базовому составу для всех команд, у которых есть
+        хотя бы один приписанный к ним игрок
+        :return: pd.Series, name: rating, index: base_team_id, values: техрейтинги
+        """
+        res = self.data.groupby('base_team_id')['rating'].apply(
+            lambda x: calc_tech_rating(x.values, q))
+        res.name = "trb"
+        return res
 
     # Multiplies all existing bonuses by J_i constant
     def reduce_rating(self):

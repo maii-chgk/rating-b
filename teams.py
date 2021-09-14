@@ -27,11 +27,11 @@ class TeamRating:
 
     def update_q(self, players_release):
         """
-            Коэффициент Q вычисляется при релизе как среднее значение отношения рейтинга R к техническому
-            рейтингу по базовому составу RB для команд, входящих в 100 лучших по последнему релизу
-            (исключая те, которые получают в этом релизе стартовые рейтинги) и имеющих не менее шести
-            игроков в базовом составе.
-            """
+        Коэффициент Q вычисляется при релизе как среднее значение отношения рейтинга R к техническому
+        рейтингу по базовому составу RB для команд, входящих в 100 лучших по последнему релизу
+        (исключая те, которые получают в этом релизе стартовые рейтинги) и имеющих не менее шести
+        игроков в базовом составе.
+        """
         top_h = self.data.iloc[:100]
         top_h_ids = set(top_h.index)
         rb_raws = players_release.data[players_release.data['base_team_id'].isin(top_h_ids)].groupby(
@@ -56,3 +56,6 @@ class TeamRating:
         new_teams['rt'] = new_teams.baseTeamMembers.map(lambda x: player_rating.calc_rt(x, self.q))
         new_teams['rating'] = new_teams.rt * 0.8
         self.data = self.data.append(new_teams.drop("baseTeamMembers", axis=1))
+
+    def calc_trb(self, pr: PlayerRating):
+        self.data['trb'] = pr.calc_tech_rating_all_teams(q=self.q).fillna(0)
