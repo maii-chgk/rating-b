@@ -9,7 +9,7 @@ N_BEST_TOURNAMENTS = 7
 
 
 class PlayerRating:
-    def __init__(self, release_date=None, file_path=None,
+    def __init__(self, release_date=None, release_date_for_squads=None, file_path=None,
                  cursor=None, schema='b', api_release_id=None):
         self.data = pd.DataFrame()
         if api_release_id:
@@ -29,6 +29,8 @@ class PlayerRating:
             raise Exception("no file_path or cursor is passed")
         if release_date is None:
             raise Exception("no release_date is passed")
+        if release_date_for_squads is None:
+            raise Exception("no release_date for squads is passed")
         release_id = get_release_id(cursor, release_date, schema)
         cursor.execute('SELECT player_id, rating '
                        + f'FROM {schema}.player_rating '
@@ -42,7 +44,7 @@ class PlayerRating:
                 players_dict[player_id]['top_bonuses'].append((tournament_id, rating_now, rating_original))
         # adding base_team_ids
         self.data = pd.DataFrame(players_dict.values()).set_index("player_id").join(
-            get_base_teams_for_players(cursor, release_date), how='left')
+            get_base_teams_for_players(cursor, release_date_for_squads), how='left')
 
     def calc_rt(self, player_ids, q=None):
         """

@@ -50,7 +50,7 @@ def get_team_rating(cursor, schema: str, release_details_id: int) -> teams.TeamR
 		+ f'FROM {schema}.releases '
 		+ f'WHERE release_details_id={release_details_id};')
 	# TODO: fill trb with "ТРК по БС"
-	teams_list = [{'team_id': team_id, 'rating': rating, 'trb': rating} for team_id, rating in cursor.fetchall()]
+	teams_list = [{'team_id': team_id, 'rating': rating} for team_id, rating in cursor.fetchall()]
 	return teams.TeamRating(teams_list=teams_list)
 
 
@@ -58,6 +58,7 @@ def get_team_rating(cursor, schema: str, release_details_id: int) -> teams.TeamR
 def calc_release(initial_teams: teams.TeamRating, initial_players: players.PlayerRating, tournaments: Iterable[
 	tournament.Tournament]) -> Tuple[teams.TeamRating, players.PlayerRating]:
 	initial_teams.update_q(initial_players)
+	initial_teams.calc_trb(initial_players)
 	for tournament in tournaments:
 		initial_teams.add_new_teams(tournament, initial_players)
 		tournament.add_ratings(initial_teams, initial_players)
@@ -135,7 +136,6 @@ def import_release(cursor, schema: str, release_id: int):
 	# player_rating, team_rating = import_release_from_chgkinfo(release_id)
 	team_rating = teams.TeamRating(release_id=release_id)
 	player_rating = players.PlayerRating(api_release_id=release_id)
-	print(f'player_rating cols:', [col for col in player_rating.data.columns])
 
 	release_date = get_chgkinfo_release_date(release_id)
 	dump_release(cursor, schema, release_date, team_rating, player_rating)
@@ -160,12 +160,12 @@ def get_tournaments_for_release(cursor, old_release_date: datetime.date, new_rel
 def make_step(cursor, schema: str, old_release_date: datetime.date):
 	old_release_id = get_release_id(cursor, old_release_date, schema)
 	initial_teams = get_team_rating(cursor, schema, old_release_id)
-	initial_players = players.PlayerRating(release_date=old_release_date, cursor=cursor, schema=schema)
 
 	if old_release_date == datetime.date(2020, 4, 3):
 		new_release_date = datetime.date(2021, 9, 9)
 	else:
 		new_release_date = old_release_date + datetime.timedelta(days=7)
+	initial_players = players.PlayerRating(release_date=old_release_date, release_date_for_squads=new_release_date, cursor=cursor, schema=schema)
 	tournaments = get_tournaments_for_release(cursor, old_release_date, new_release_date)
 
 	new_teams, new_players = calc_release(initial_teams, initial_players, tournaments)

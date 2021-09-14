@@ -50,7 +50,7 @@ class Tournament:
 
     def calc_bonuses(self, team_rating):
         self.data.sort_values(by='rg', ascending=False, inplace=True)
-        self.data['score_pred'] = self.calculate_bonus_predictions(self.data.rg.values, c=team_rating.c)
+        self.data['score_pred'] = self.calculate_bonus_predictions(list(self.data.rg.values), c=team_rating.c)
         self.data['score_real'] = calc_score_real(self.data.score_pred.values, self.data.position.values)
         self.data['bonus_raw'] = calc_bonus_raw(self.data.score_real, self.data.score_pred)
         self.data['bonus'] = self.data.bonus_raw
