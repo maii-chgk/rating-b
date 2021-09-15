@@ -39,7 +39,8 @@ class Tournament:
     @staticmethod
     def calculate_bonus_predictions(tournament_ratings, c=1):
         """
-        produces array of bonuses based on the array of rating of participants
+        produces array of bonuses based on the array of game ratings of participants
+        :parameter tournament_ratings - sorted descendingly game ratings (rg) of teams
         """
         raw_preds = np.round(rolling_window(tournament_ratings, 15).dot(2.**np.arange(0, -15, -1)) * c)
         samesies = tournament_ratings[:-1] == tournament_ratings[1:]

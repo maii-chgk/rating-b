@@ -11,10 +11,10 @@ def rolling_window(a, window):
 
 
 def calc_tech_rating(players_ratings, q=None):
-    players_ratings[::-1].sort()
-    coeffs = np.zeros(players_ratings.size)
+    pr_sorted = np.sort(players_ratings)[::-1]
+    coeffs = np.zeros(pr_sorted.size)
     coeffs[:6] = (np.arange(6, 0, -1) / 6)[:coeffs.size]
-    tech_rating = np.round(players_ratings.dot(coeffs))
+    tech_rating = np.round(pr_sorted.dot(coeffs))
     if q is not None:
         tech_rating *= q
     return tech_rating
