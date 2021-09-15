@@ -59,4 +59,5 @@ class TeamRating:
         self.data = self.data.append(new_teams.drop("baseTeamMembers", axis=1))
 
     def calc_trb(self, player_rating: PlayerRating):
-        self.data['trb'] = player_rating.calc_tech_rating_all_teams(q=self.q).fillna(0)
+        self.data['trb'] = player_rating.calc_tech_rating_all_teams(q=self.q)
+        self.data['trb'].fillna(0, inplace=True)

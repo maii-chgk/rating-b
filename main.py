@@ -27,7 +27,7 @@ def get_tournament(cursor, tournament_id: int) -> Optional[tournament.Tournament
 				'name': team_name,
 				'current_name': cur_title,
 				'questionsTotal': total,
-				'position': position,
+				'position': float(position), # it's of type Decimal (whatever it is) for some reason
 				'n_base': 0,
 				'n_legs': 0,
 				'teamMembers': [],
@@ -43,6 +43,7 @@ def get_tournament(cursor, tournament_id: int) -> Optional[tournament.Tournament
 	if len(teams) == 0:
 		return None
 	return tournament.Tournament(tournament_id=tournament_id, teams_dict=teams)
+
 
 # Reads the teams rating for given release_details_id.
 def get_team_rating(cursor, schema: str, release_details_id: int) -> teams.TeamRating:

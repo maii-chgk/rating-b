@@ -26,7 +26,7 @@ def calc_score_real(predicted_scores, positions):
     pos_counts.columns = ['pos', 'n_teams']
     pos_counts['bonus'] = pos_counts.apply(
         lambda x: np.mean(predicted_scores[
-                          int(x.pos - (decimal.Decimal(x.n_teams) - 1) / 2): int(x.pos + (decimal.Decimal(x.n_teams) - 1) / 2) + 1]),
+                          int(x.pos - (x.n_teams - 1) / 2): int(x.pos + (x.n_teams - 1) / 2) + 1]),
         axis=1)
     return np.round(pos_counts.set_index('pos').loc[positions, 'bonus'].values)
 

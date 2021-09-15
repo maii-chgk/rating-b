@@ -41,7 +41,6 @@ class Tournament:
         """
         produces array of bonuses based on the array of rating of participants
         """
-        tournament_ratings[::-1].sort()
         raw_preds = np.round(rolling_window(tournament_ratings, 15).dot(2.**np.arange(0, -15, -1)) * c)
         samesies = tournament_ratings[:-1] == tournament_ratings[1:]
         for ind in np.nonzero(samesies)[0]:
@@ -50,7 +49,7 @@ class Tournament:
 
     def calc_bonuses(self, team_rating):
         self.data.sort_values(by='rg', ascending=False, inplace=True)
-        self.data['score_pred'] = self.calculate_bonus_predictions(list(self.data.rg.values), c=team_rating.c)
+        self.data['score_pred'] = self.calculate_bonus_predictions(self.data.rg.values, c=team_rating.c)
         self.data['score_real'] = calc_score_real(self.data.score_pred.values, self.data.position.values)
         self.data['bonus_raw'] = calc_bonus_raw(self.data.score_real, self.data.score_pred)
         self.data['bonus'] = self.data.bonus_raw
