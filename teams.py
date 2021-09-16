@@ -35,8 +35,9 @@ class TeamRating:
         top_h = self.data.iloc[:100]
         top_h_ids = set(top_h.index)
         rb_raws = players_release.data[players_release.data['base_team_id'].isin(top_h_ids)].groupby(
-            'base_team_id')['rating'].apply(lambda x: calc_tech_rating(x.values))
-        top_h = top_h.join(rb_raws, rsuffix='_raw')
+            'base_team_id')['rating'].apply(
+            lambda x: calc_tech_rating(x.values) if len(x.values) >= 6 else None).dropna()
+        top_h = top_h.join(rb_raws, rsuffix='_raw', how='inner')
         self.q = (top_h['rating'] / top_h['rating_raw']).mean()
 
     def calc_c(self):
