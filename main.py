@@ -57,7 +57,7 @@ def get_team_rating(cursor, schema: str, release_details_id: int) -> teams.TeamR
 
 
 # Calculates new teams and players rating based on old rating and provided set of tournaments.
-def calc_release(initial_teams: teams.TeamRating, initial_players: players.PlayerRating, tournaments: Iterable[
+def calc_release(cursor, initial_teams: teams.TeamRating, initial_players: players.PlayerRating, tournaments: Iterable[
 	tournament.Tournament], release_date_for_squads: datetime.date) -> Tuple[teams.TeamRating, players.PlayerRating]:
 	initial_teams.update_q(initial_players)
 	initial_teams.calc_trb(initial_players)
@@ -175,7 +175,7 @@ def make_step(cursor, schema: str, old_release_date: datetime.date):
 	initial_players = players.PlayerRating(release_date=old_release_date, release_date_for_squads=new_release_date, cursor=cursor, schema=schema)
 	tournaments = get_tournaments_for_release(cursor, old_release_date, new_release_date)
 
-	new_teams, new_players = calc_release(initial_teams, initial_players, tournaments, release_date_for_squads=new_release_date)
+	new_teams, new_players = calc_release(cursor, initial_teams, initial_players, tournaments, release_date_for_squads=new_release_date)
 	for trnmt in tournaments:
 		dump_team_bonuses_for_tournament(cursor, schema, trnmt)
 	# We run this before dumping release to create corresponding row in `release_details` if needed.
