@@ -2,7 +2,7 @@
 from tools import rolling_window, calc_score_real, calc_bonus_raw
 import pandas as pd
 import numpy as np
-from typing import Any, Tuple
+from typing import Any, Tuple, Set
 
 
 class Tournament:
@@ -37,7 +37,7 @@ class Tournament:
                                    np.minimum(self.data.rg, np.maximum(self.data.r, self.data.rt)))
 
     @staticmethod
-    def calculate_bonus_predictions(tournament_ratings, c=1):
+    def calculate_bonus_predictions(tournament_ratings: np.array, c=1):
         """
         produces array of bonuses based on the array of game ratings of participants
         :parameter tournament_ratings - sorted descendingly game ratings (rg) of teams
@@ -66,7 +66,7 @@ class Tournament:
                 player_rating.data.loc[player_id]['top_bonuses'].append((self.id, team['bonus'], team['bonus']))
         return team_rating, player_rating
 
-    def get_new_player_ids(self, existing_players: set[int]) -> set[int]:
+    def get_new_player_ids(self, existing_players: Set[int]) -> Set[int]:
         res = set()
         for i, team in self.data.iterrows():
             for player_id in team['teamMembers']:
