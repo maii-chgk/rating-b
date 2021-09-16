@@ -50,7 +50,7 @@ class Tournament:
 
     def calc_bonuses(self, team_rating):
         self.data.sort_values(by='rg', ascending=False, inplace=True)
-        self.data['score_pred'] = self.calculate_bonus_predictions(self.data.rg.values, c=team_rating.c)
+        self.data['score_pred'] = self.calculate_bonus_predictions(list(self.data.rg.values), c=team_rating.c)
         self.data['score_real'] = calc_score_real(self.data.score_pred.values, self.data.position.values)
         self.data['bonus_raw'] = calc_bonus_raw(self.data.score_real, self.data.score_pred)
         self.data['bonus'] = self.data.bonus_raw
@@ -60,8 +60,16 @@ class Tournament:
 
     def apply_bonuses(self, team_rating, player_rating) -> Tuple[Any, Any]:
         for i, team in self.data.iterrows():
-            if team['n_base'] >= 3:
-                team_rating.data[i]['rating'] += team['bonus']
+            if team['heredity']:
+                team_rating.data.loc[team['team_id']]['rating'] += team['bonus']
             for player_id in team['teamMembers']:
-                player_rating[player_id]['top_bonuses'].append((self.id, team['bonus'], team['bonus']))
+                player_rating.data.loc[player_id]['top_bonuses'].append((self.id, team['bonus'], team['bonus']))
         return team_rating, player_rating
+
+    def get_new_player_ids(self, existing_players: set[int]) -> set[int]:
+        res = set()
+        for i, team in self.data.iterrows():
+            for player_id in team['teamMembers']:
+                if player_id not in existing_players:
+                    res.add(player_id)
+        return res

@@ -55,7 +55,8 @@ class TeamRating:
                                     ['team_id', 'baseTeamMembers']].set_index("team_id")
         new_teams['rt'] = new_teams.baseTeamMembers.map(lambda x: player_rating.calc_rt(x, self.q))
         new_teams['rating'] = new_teams.rt * 0.8
-        new_teams['trb'] = player_rating.calc_tech_rating_all_teams(q=self.q).fillna(0)
+        new_teams['trb'] = player_rating.calc_tech_rating_all_teams(q=self.q)
+        new_teams['trb'].fillna(0, inplace=True)
         self.data = self.data.append(new_teams.drop("baseTeamMembers", axis=1))
 
     def calc_trb(self, player_rating: PlayerRating):

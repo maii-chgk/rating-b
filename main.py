@@ -1,6 +1,7 @@
 from postgres import Postgres
 import copy
 import datetime
+import pandas as pd
 from typing import Iterable, List, Optional, Tuple
 
 import api_util
@@ -9,7 +10,7 @@ import players
 import private_data
 import tournament
 
-from db_tools import get_release_id, fast_insert
+from db_tools import get_release_id, fast_insert, get_base_teams_for_players
 
 
 # Reads the data for given tournament including each team's players from 'public' schema.
@@ -57,27 +58,32 @@ def get_team_rating(cursor, schema: str, release_details_id: int) -> teams.TeamR
 
 # Calculates new teams and players rating based on old rating and provided set of tournaments.
 def calc_release(initial_teams: teams.TeamRating, initial_players: players.PlayerRating, tournaments: Iterable[
-	tournament.Tournament]) -> Tuple[teams.TeamRating, players.PlayerRating]:
+	tournament.Tournament], release_date_for_squads: datetime.date) -> Tuple[teams.TeamRating, players.PlayerRating]:
 	initial_teams.update_q(initial_players)
 	initial_teams.calc_trb(initial_players)
+	existing_player_ids = set(initial_players.data.index)
+	new_player_ids = set()
 	for tournament in tournaments:
 		initial_teams.add_new_teams(tournament, initial_players)
 		tournament.add_ratings(initial_teams, initial_players)
 		tournament.calc_bonuses(initial_teams)
+		new_player_ids |= tournament.get_new_player_ids(existing_player_ids)
 
-	new_teams = copy.deepcopy(initial_teams)
-	new_players = copy.deepcopy(initial_players)
+	final_teams = copy.deepcopy(initial_teams)
+	final_players = copy.deepcopy(initial_players)
+	new_players = pd.DataFrame([{'player_id': player_id, 'rating': 0, 'top_bonuses': []} for player_id in new_player_ids]).set_index("player_id").join(
+            get_base_teams_for_players(cursor, release_date_for_squads), how='left')
+	final_players.data = final_players.data.append(new_players)
 
 	# We need these columns to dump the difference between new and old rating.
-	new_teams.data['prev_rating'] = new_teams.data['rating'] 
-	new_players.data['prev_rating'] = new_players.data['rating']
+	final_teams.data['prev_rating'] = final_teams.data['rating'] 
+	final_players.data['prev_rating'] = final_players.data['rating']
 
-	new_players.reduce_rating()
+	final_players.reduce_rating()
 	for tournament in tournaments:
-		for i, team in tournament.data.iterrows():
-			new_teams, new_players = tournament.apply_bonuses(new_teams, new_players)
-	new_players.recalc_rating()
-	return new_teams, new_players
+		final_teams, final_players = tournament.apply_bonuses(final_teams, final_players)
+	final_players.recalc_rating()
+	return final_teams, final_players
 
 
 # Reads the date for release at chgk.info with provided ID
@@ -103,8 +109,8 @@ def dump_release(cursor, schema: str, release_date: datetime.date, team_rating: 
 
 	cursor.execute(f'DELETE FROM {schema}.player_top_bonuses WHERE release_details_id={release_details_id};')
 	bonuses_rows = []
-	for _, player in player_rating.data.iterrows():
-		bonuses_rows += [f'({player["player_id"]}, {release_details_id}, {tournament_id}, {rating_now}, {rating_original})' for tournament_id, rating_now, rating_original in player['top_bonuses']]
+	for player_id, player in player_rating.data.iterrows():
+		bonuses_rows += [f'({player_id}, {release_details_id}, {tournament_id}, {rating_now}, {rating_original})' for tournament_id, rating_now, rating_original in player['top_bonuses']]
 	fast_insert(cursor, 'player_top_bonuses',
 				'player_id, release_details_id, tournament_id, rating_now, rating_original',
 				bonuses_rows, schema)
@@ -169,7 +175,7 @@ def make_step(cursor, schema: str, old_release_date: datetime.date):
 	initial_players = players.PlayerRating(release_date=old_release_date, release_date_for_squads=new_release_date, cursor=cursor, schema=schema)
 	tournaments = get_tournaments_for_release(cursor, old_release_date, new_release_date)
 
-	new_teams, new_players = calc_release(initial_teams, initial_players, tournaments)
+	new_teams, new_players = calc_release(initial_teams, initial_players, tournaments, release_date_for_squads=new_release_date)
 	for trnmt in tournaments:
 		dump_team_bonuses_for_tournament(cursor, schema, trnmt)
 	# We run this before dumping release to create corresponding row in `release_details` if needed.
