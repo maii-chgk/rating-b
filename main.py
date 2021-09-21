@@ -5,8 +5,8 @@ import pandas as pd
 from typing import Iterable, List, Tuple
 
 import api_util
-import teams
-import players
+from teams import TeamRating
+from players import PlayerRating
 import private_data
 from tournament import Tournament
 
@@ -14,19 +14,18 @@ from db_tools import get_release_id, fast_insert, get_base_teams_for_players
 
 
 # Reads the teams rating for given release_details_id.
-def get_team_rating(cursor, schema: str, release_details_id: int) -> teams.TeamRating:
+def get_team_rating(cursor, schema: str, release_details_id: int) -> TeamRating:
     cursor.execute('SELECT team_id, rating '
                    + f'FROM {schema}.releases '
                    + f'WHERE release_details_id={release_details_id};')
     teams_list = [{'team_id': team_id, 'rating': rating} for team_id, rating in cursor.fetchall()]
-    return teams.TeamRating(teams_list=teams_list)
+    return TeamRating(teams_list=teams_list)
 
 
 # Calculates new teams and players rating based on old rating and provided set of tournaments.
-def calc_release(cursor, initial_teams: teams.TeamRating, initial_players: players.PlayerRating,
-                 tournaments: Iterable[
-                     Tournament], release_date_for_squads: datetime.date) -> Tuple[
-    teams.TeamRating, players.PlayerRating]:
+def calc_release(cursor, initial_teams: TeamRating, initial_players: PlayerRating,
+                 tournaments: Iterable[Tournament],
+                 release_date_for_squads: datetime.date) -> Tuple[TeamRating, PlayerRating]:
     initial_teams.update_q(initial_players)
     initial_teams.calc_trb(initial_players)
     existing_player_ids = set(initial_players.data.index)
@@ -63,8 +62,8 @@ def get_chgkinfo_release_date(release_id: int) -> datetime.date:
 
 
 # Saves provided teams and players ratings to our DB for provided release date
-def dump_release(cursor, schema: str, release_date: datetime.date, team_rating: teams.TeamRating,
-                 player_rating: players.PlayerRating):
+def dump_release(cursor, schema: str, release_date: datetime.date, team_rating: TeamRating,
+                 player_rating: PlayerRating):
     release_details_id = get_release_id(cursor, release_date, schema)
 
     # TODO: We don't need to dump players with rating 0
@@ -123,21 +122,21 @@ def mark_release_as_just_updated(cursor, schema: str, release_date: datetime.dat
 
 # Copies release (teams and players) with provided ID from chgk.info to provided schema in our DB
 def import_release(cursor, schema: str, release_id: int):
-    # player_rating, team_rating = import_release_from_chgkinfo(release_id)
-    team_rating = teams.TeamRating(release_id=release_id)
-    player_rating = players.PlayerRating(api_release_id=release_id)
+    team_rating = TeamRating(release_id=release_id)
+    player_rating = PlayerRating(api_release_id=release_id)
 
     release_date = get_chgkinfo_release_date(release_id)
     dump_release(cursor, schema, release_date, team_rating, player_rating)
-    print(
-        f'Loaded {len(team_rating.data)} teams and {len(player_rating.data)} players from release {release_date} (ID {release_id}).')
+    print(f'Loaded {len(team_rating.data)} teams and {len(player_rating.data)} players from '
+          f'release {release_date} (ID {release_id}).')
 
 
 # Loads tournaments from our DB that finish between given releases.
 def get_tournaments_for_release(cursor, old_release_date: datetime.date,
                                 new_release_date: datetime.date) -> List[Tournament]:
-    cursor.execute(
-        f'SELECT id FROM public.rating_tournament WHERE end_datetime::date >= \'{old_release_date.isoformat()}\' AND end_datetime::date < \'{new_release_date.isoformat()}\' AND "maiiRating";')
+    cursor.execute(f'SELECT id FROM public.rating_tournament WHERE end_datetime::date >= '
+                   f'\'{old_release_date.isoformat()}\' AND end_datetime::date < '
+                   f'\'{new_release_date.isoformat()}\' AND "maiiRating";')
     tournaments = []
     # We want only tournaments with available results
     for row in cursor.fetchall():
@@ -145,7 +144,8 @@ def get_tournaments_for_release(cursor, old_release_date: datetime.date,
         if maybe_tournament is not None:
             tournaments.append(maybe_tournament)
     print(
-        f'Tournaments between {old_release_date.isoformat()} and {new_release_date.isoformat()}: {len(tournaments)}')
+        f'Tournaments between {old_release_date.isoformat()} and '
+        f'{new_release_date.isoformat()}: {len(tournaments)}')
     return tournaments
 
 
@@ -159,9 +159,9 @@ def make_step(cursor, schema: str, old_release_date: datetime.date):
         new_release_date = datetime.date(2021, 9, 9)
     else:
         new_release_date = old_release_date + datetime.timedelta(days=7)
-    initial_players = players.PlayerRating(release_date=old_release_date,
-                                           release_date_for_squads=new_release_date, cursor=cursor,
-                                           schema=schema)
+    initial_players = PlayerRating(release_date=old_release_date,
+                                   release_date_for_squads=new_release_date, cursor=cursor,
+                                   schema=schema)
     tournaments = get_tournaments_for_release(cursor, old_release_date, new_release_date)
 
     new_teams, new_players = calc_release(cursor, initial_teams, initial_players, tournaments,
