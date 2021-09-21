@@ -1,30 +1,45 @@
 # from rating_api.tournaments import get_tournament_results
-from tools import rolling_window, calc_score_real, calc_bonus_raw
+from tools import rolling_window, calc_score_real
 import pandas as pd
 import numpy as np
 from typing import Any, Tuple, Set
 
 
 class Tournament:
-    def __init__(self, tournament_id, teams_dict=None):
+    def __init__(self, cursor, tournament_id: int):
+        cursor.execute(f'SELECT typeoft_id FROM rating_tournament WHERE id = {tournament_id}')
+        self.type = cursor.fetchone()[0]
+        self.coeff = self.tournament_type_to_coeff(self.type)
         self.id = tournament_id
-        if teams_dict is not None:
-            self.data = pd.DataFrame(teams_dict.values())
-        # else:
-        #     raw_results = get_tournament_results(tournament_id, recaps=True)
-        #     self.data = pd.DataFrame([
-        #         {
-        #             'team_id': t['team']['id'],
-        #             'name': t['team']['name'],
-        #             'current_name': t['current']['name'],
-        #             'questionsTotal': t['questionsTotal'],
-        #             'position': t['position'],
-        #             'n_base': sum(player['flag'] in {'Б', 'К'} for player in t['teamMembers']),
-        #             'n_legs': sum(player['flag'] not in {'Б', 'К'} for player in t['teamMembers']),
-        #             'teamMembers': [x['player']['id'] for x in t['teamMembers']],
-        #             'baseTeamMembers': [x['player']['id'] for x in t['teamMembers'] if x['flag'] in {'Б', 'К'}]
-        #         } for t in raw_results if t['position'] != 9999
-        #     ])
+        cursor.execute(f'SELECT rteam.id f1, rp.id f2, otr."inRating", rteam.title, rr.team_title, rr.total, rr.position, o_r.flag '
+                       + 'FROM public.rating_result rr, public."rating_result_teamMembers" rrt, public.rating_tournament rt, public.rating_team rteam, '
+                       + 'public.rating_player rp, public.rating_oldteamrating otr, public.rating_oldrating o_r '
+                       + f'WHERE rt.id={tournament_id} AND rr.tournament_id=rt.id AND rrt.result_id=rr.id AND rteam.id=rr.team_id AND rrt.player_id=rp.id AND otr.result_id=rr.id '
+                       + f'AND rr.position!=9999 AND o_r.result_id=rr.id AND o_r.player_id=rp.id;')
+        teams = {}
+        for team_id, player_id, in_rating, team_name, cur_title, total, position, flag in cursor.fetchall():
+            if team_id not in teams:
+                teams[team_id] = {
+                    'team_id': team_id,
+                    'name': team_name,
+                    'current_name': cur_title,
+                    'questionsTotal': total,
+                    'position': float(position), # it's of type Decimal (whatever it is) for some reason
+                    'n_base': 0,
+                    'n_legs': 0,
+                    'teamMembers': [],
+                    'baseTeamMembers': []
+                }
+            teams[team_id]['teamMembers'].append(player_id)
+            if flag in {'Б', 'К'}:
+                teams[team_id]['n_base'] += 1
+                teams[team_id]['baseTeamMembers'].append(player_id)
+            else:
+                teams[team_id]['n_legs'] += 1
+        print(f'Tournament id: {tournament_id}. teams: {len(teams)}')
+        if len(teams) == 0:
+            raise Exception(f"Tournament {tournament_id} is empty!")
+        self.data = pd.DataFrame(teams.values())
         self.data['heredity'] = (self.data.n_base > 3) | (self.data.n_base == 3) & \
                                 (self.data.name == self.data.current_name)
 
@@ -48,11 +63,18 @@ class Tournament:
             raw_preds[ind + 1] = raw_preds[ind]
         return raw_preds
 
+    def calc_d1(self):
+        d_one = self.data.score_real - self.data.score_pred
+        d_one[d_one < 0] *= 0.5
+        return d_one
+
     def calc_bonuses(self, team_rating):
         self.data.sort_values(by='rg', ascending=False, inplace=True)
         self.data['score_pred'] = self.calculate_bonus_predictions(self.data.rg.values, c=team_rating.c)
         self.data['score_real'] = calc_score_real(self.data.score_pred.values, self.data.position.values)
-        self.data['bonus_raw'] = calc_bonus_raw(self.data.score_real, self.data.score_pred)
+        self.data['D1'] = self.calc_d1()
+        self.data['D2'] = 300 * np.exp((self.data.score_real - 2300) / 350)
+        self.data['bonus_raw'] = (self.coeff * (self.data['D1'] + self.data['D2'])).astype('int')
         self.data['bonus'] = self.data.bonus_raw
         self.data.loc[self.data.heredity & (self.data.n_legs > 2), 'bonus'] *= \
             (2 / self.data[self.data.heredity & (self.data.n_legs > 2)]['n_legs'])
@@ -73,3 +95,16 @@ class Tournament:
                 if player_id not in existing_players:
                     res.add(player_id)
         return res
+
+    @staticmethod
+    def tournament_type_to_coeff(ttype: int) -> float:
+        if ttype in {2, 4}:
+            return 1.0
+        if ttype == 6:
+            return 2./3.
+        if ttype == 3:
+            return 0.5
+        else:
+            raise Exception(f"tournament type {ttype} is not supported!")
+
+
