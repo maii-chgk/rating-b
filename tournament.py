@@ -1,5 +1,5 @@
 # from rating_api.tournaments import get_tournament_results
-from tools import rolling_window, calc_score_real, calc_bonus_raw
+from tools import rolling_window, calc_score_real
 import pandas as pd
 import numpy as np
 from typing import Any, Tuple, Set
@@ -63,11 +63,18 @@ class Tournament:
             raw_preds[ind + 1] = raw_preds[ind]
         return raw_preds
 
+    def calc_d1(self):
+        d_one = self.data.score_real - self.data.score_pred
+        d_one[d_one < 0] *= 0.5
+        return d_one
+
     def calc_bonuses(self, team_rating):
         self.data.sort_values(by='rg', ascending=False, inplace=True)
         self.data['score_pred'] = self.calculate_bonus_predictions(self.data.rg.values, c=team_rating.c)
         self.data['score_real'] = calc_score_real(self.data.score_pred.values, self.data.position.values)
-        self.data['bonus_raw'] = calc_bonus_raw(self.data.score_real, self.data.score_pred, self.coeff)
+        self.data['D1'] = self.calc_d1()
+        self.data['D2'] = 300 * np.exp((self.data.score_real - 2300) / 350)
+        self.data['bonus_raw'] = (self.coeff * (self.data['D1'] + self.data['D2'])).astype('int')
         self.data['bonus'] = self.data.bonus_raw
         self.data.loc[self.data.heredity & (self.data.n_legs > 2), 'bonus'] *= \
             (2 / self.data[self.data.heredity & (self.data.n_legs > 2)]['n_legs'])
