@@ -56,7 +56,7 @@ def calc_release(cursor, initial_teams: TeamRating, initial_players: PlayerRatin
 
 
 # Reads the date for release at chgk.info with provided ID
-def get_chgkinfo_release_date(release_id: int) -> datetime.date:
+def get_api_release_date(release_id: int) -> datetime.date:
     release_json = api_util.url2json(f'http://api.rating.chgk.net/releases/{release_id}')
     return datetime.datetime.fromisoformat(release_json['date']).date()
 
@@ -125,7 +125,7 @@ def import_release(cursor, schema: str, release_id: int):
     team_rating = TeamRating(release_id=release_id)
     player_rating = PlayerRating(api_release_id=release_id)
 
-    release_date = get_chgkinfo_release_date(release_id)
+    release_date = get_api_release_date(release_id)
     dump_release(cursor, schema, release_date, team_rating, player_rating)
     print(f'Loaded {len(team_rating.data)} teams and {len(player_rating.data)} players from '
           f'release {release_date} (ID {release_id}).')
