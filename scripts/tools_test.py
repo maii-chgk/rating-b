@@ -19,5 +19,12 @@ class TestTools(unittest.TestCase):
         with self.assertRaises(AssertionError) as _:
             tools.get_age_in_weeks(datetime.date(2021, 9, 13), datetime.date(2021, 9, 9))
 
+    def test_get_prev_release_date(self):
+        self.assertEqual(datetime.date(2020, 4, 3), tools.get_prev_release_date(datetime.date(2021, 9, 9)))
+        self.assertEqual(datetime.date(2021, 9, 16), tools.get_prev_release_date(datetime.date(2021, 9, 23)))
+        self.assertEqual(datetime.date(2020, 3, 27), tools.get_prev_release_date(datetime.date(2020, 4, 3)))
+        with self.assertRaises(AssertionError) as _:
+            tools.get_prev_release_date(datetime.date(2021, 9, 13))
+
 if __name__ == '__main__':
     unittest.main()

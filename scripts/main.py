@@ -1,0 +1,201 @@
+from postgres import Postgres
+import copy
+import datetime
+import pandas as pd
+from typing import Iterable, List, Tuple
+
+from b import models
+from dj import private_settings
+
+from . import api_util
+from . import tools
+from .teams import TeamRating
+from .players import PlayerRating
+from .tournament import EmptyTournamentException, Tournament
+from .db_tools import get_release_id, fast_insert, get_base_teams_for_players
+
+SCHEMA = 'b'
+POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
+    private_settings.DJANGO_POSTRGES_DB_USER,
+    private_settings.DJANGO_POSTRGES_DB_PASSWORD,
+    private_settings.DJANGO_POSTRGES_DB_HOST,
+    private_settings.DJANGO_POSTRGES_DB_PORT,
+    private_settings.DJANGO_POSTRGES_DB_NAME,
+)
+
+# Reads the teams rating for given release_id.
+def get_team_rating(cursor, schema: str, release_id: int) -> TeamRating:
+    cursor.execute('SELECT team_id, rating, rt '
+                   + f'FROM {schema}.team_rating '
+                   + f'WHERE release_id={release_id};')
+    teams_list = [{'team_id': team_id, 'rating': rating, 'rt': rt} for team_id, rating, rt in cursor.fetchall()]
+    return TeamRating(teams_list=teams_list)
+
+
+# Calculates new teams and players rating based on old rating and provided set of tournaments.
+def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_players: PlayerRating,
+                 tournaments: Iterable[Tournament],
+                 new_release: models.Release) -> Tuple[TeamRating, PlayerRating]:
+    initial_teams.update_q(initial_players)
+    initial_teams.calc_trb(initial_players)
+    existing_player_ids = set(initial_players.data.index)
+    new_player_ids = set()
+    for tournament in tournaments:
+        initial_teams.add_new_teams(tournament, initial_players)
+        tournament.add_ratings(initial_teams, initial_players)
+        tournament.calc_bonuses(initial_teams)
+        new_player_ids |= tournament.get_new_player_ids(existing_player_ids)
+
+    final_teams = copy.deepcopy(initial_teams)
+    final_players = copy.deepcopy(initial_players)
+    new_players = pd.DataFrame(
+        [{'player_id': player_id, 'rating': 0, 'top_bonuses': []} for player_id in
+         new_player_ids]).set_index("player_id").join(
+        get_base_teams_for_players(cursor, new_release.date), how='left')
+    final_players.data = final_players.data.append(new_players)
+
+    # We need these columns to dump the difference between new and old rating.
+    final_teams.data['prev_rating'] = final_teams.data['rating']
+    final_players.data['prev_rating'] = final_players.data['rating']
+
+    final_players.reduce_rating()
+    for tournament in tournaments:
+        final_teams, final_players = tournament.apply_bonuses(final_teams, final_players)
+    final_players.recalc_rating()
+    return final_teams, final_players
+
+
+# Reads the date for release at chgk.info with provided ID
+def get_api_release_date(release_id: int) -> datetime.date:
+    release_json = api_util.url2json(f'http://api.rating.chgk.net/releases/{release_id}')
+    return datetime.datetime.fromisoformat(release_json['date']).date()
+
+
+# Saves provided teams and players ratings to our DB for provided release date
+def dump_release(cursor, schema: str, release: models.Release, team_rating: TeamRating,
+                 player_rating: PlayerRating):
+    # TODO: We don't need to dump players with rating 0
+    cursor.execute(
+        f'DELETE FROM {schema}.player_rating WHERE release_id={release.id};')
+    player_rows = [
+        f'({player_id}, {release.id}, {player["rating"]}, {(player["rating"] - player["prev_rating"]) if player["prev_rating"] else "NULL"})'
+        for player_id, player in player_rating.data.iterrows()]
+    fast_insert(cursor, 'player_rating', 'player_id, release_id, rating, rating_change',
+                player_rows, schema)
+
+    cursor.execute(f'DELETE FROM {schema}.team_rating WHERE release_id={release.id};')
+    team_rows = [
+        f'({team_id}, {release.id}, {team["rating"]}, {team["rt"]}, {(team["rating"] - team["prev_rating"]) if team["prev_rating"] else "NULL"})'
+        for team_id, team in team_rating.data.iterrows()]
+    fast_insert(cursor, 'team_rating', 'team_id, release_id, rating, rt, rating_change', team_rows,
+                schema)
+
+    cursor.execute(
+        f'DELETE FROM {schema}.player_rating_by_tournament WHERE release_id={release.id};')
+    bonuses_rows = []
+    print('Total players:', len(player_rating.data.index))
+    i = 0
+    for player_id, player in player_rating.data.iterrows():
+        i += 1
+        if (i % 1000) == 0:
+            print(i, len(bonuses_rows))
+        for player_rating_by_trnmt in player['top_bonuses']:
+            bonuses_rows.append('(' + ', '.join(str(x) for x in [
+                release.id,
+                player_id,
+                player_rating_by_trnmt.tournament_result_id if player_rating_by_trnmt.tournament_result_id else 'NULL',
+                player_rating_by_trnmt.tournament_id if player_rating_by_trnmt.tournament_id else 'NULL',
+                # player_rating_by_trnmt.tournament_result.rating if player_rating_by_trnmt.tournament_result else player_rating_by_trnmt.initial_score,
+                player_rating_by_trnmt.initial_score,
+                player_rating_by_trnmt.weeks_since_tournament,
+                player_rating_by_trnmt.cur_score,
+            ]) + ')')
+    print(f'Dumping player bonuses: {len(bonuses_rows)}')
+    fast_insert(cursor, 'player_rating_by_tournament',
+                'release_id, player_id, tournament_result_id, tournament_id, initial_score, weeks_since_tournament, cur_score',
+                bonuses_rows, schema)
+
+
+# Saves tournament bonuses that were already calculated.
+def dump_team_bonuses_for_tournament(cursor, schema: str, trnmt: Tournament):
+    cursor.execute(f'DELETE FROM {schema}.tournament_result WHERE tournament_id={trnmt.id};')
+    rows = [f'({trnmt.id}, {team["team_id"]}, {0 if True else team["mp"]}, {team["score_pred"]}, {team["position"]}, {team["score_real"]}, {team["D1"]}, {team["D2"]}, {team["bonus"]})' for _, team in
+            trnmt.data.iterrows()]
+    fast_insert(cursor, 'tournament_result', 'tournament_id, team_id, mp, bp, m, rating, d1, d2, rating_change', rows, schema)
+
+
+# Creates release row if it doesn't exist.
+# Marks the release with provided date as just updated.
+# Returns the ID of this release.
+def mark_release_as_just_updated(cursor, schema: str, release_date: datetime.date) -> int:
+    cursor.execute(
+        f'UPDATE {schema}.release SET updated_at=NOW() WHERE date=\'{release_date.isoformat()}\';')
+    if cursor.rowcount == 0:
+        # This means that there is now row with provided release_date yet
+        cursor.execute(
+            f'INSERT INTO {schema}.release (date, updated_at, created_at) VALUES (\'{release_date.isoformat()}\', NOW(), NOW());')
+    cursor.execute(
+        f'SELECT id FROM {schema}.release WHERE date=\'{release_date.isoformat()}\';')
+    release_id = cursor.fetchone()[0]
+    if release_id <= 0:
+        print(f'Wrong release.id for {release_date.isoformat()}: {release_id}!')
+    return release_id
+
+
+# Copies release (teams and players) with provided ID from API to provided schema in our DB
+def import_release(api_release_id: int, schema: str=SCHEMA):
+    team_rating = TeamRating(api_release_id=api_release_id)
+    player_rating = PlayerRating(api_release_id=api_release_id)
+
+    release_date = get_api_release_date(api_release_id)
+    release, _ = models.Release.objects.get_or_create(date=release_date)
+    db = Postgres(url=POSTGRES_URL)
+    with db.get_cursor() as cursor:
+        dump_release(cursor, schema, release, team_rating, player_rating)
+    print(f'Loaded {len(team_rating.data)} teams and {len(player_rating.data)} players from '
+          f'release {release_date} (ID in API {api_release_id}).')
+
+
+# Loads tournaments from our DB that finish between given releases.
+def get_tournaments_for_release(cursor, old_release_date: datetime.date,
+                                new_release: models.Release) -> List[Tournament]:
+    cursor.execute(f'SELECT id FROM public.rating_tournament WHERE end_datetime::date >= '
+                   f'\'{old_release_date.isoformat()}\' AND end_datetime::date < '
+                   f'\'{new_release.date.isoformat()}\' AND maii_rating;')
+    tournaments = []
+    # We want only tournaments with available results
+    for row in cursor.fetchall():
+        try:
+            tournament = Tournament(cursor, row[0], release=new_release)
+            tournaments.append(tournament)
+        except EmptyTournamentException:
+            print(f'Tournament with id {row[0]} has no results. Skipping')
+    print(
+        f'Tournaments between {old_release_date.isoformat()} and '
+        f'{new_release.date}: {len(tournaments)}')
+    return tournaments
+
+
+# Reads teams and players for provided dates; finds tournaments for next release; calculates
+# new ratings and writes them to our DB.
+def calc_release(next_release_date: datetime.date, schema: str=SCHEMA):
+    db = Postgres(url=POSTGRES_URL)
+    with db.get_cursor() as cursor:
+        old_release_date = tools.get_prev_release_date(next_release_date)
+        old_release = models.Release.objects.get(date=old_release_date)
+        initial_teams = get_team_rating(cursor, schema, old_release.id)
+
+        next_release, _ = models.Release.objects.get_or_create(date=next_release_date)
+        initial_players = PlayerRating(release=old_release,
+                                       release_for_squads=next_release,
+                                       cursor=cursor,
+                                       schema=schema)
+        tournaments = get_tournaments_for_release(cursor, old_release_date, next_release)
+
+        new_teams, new_players = make_step_for_teams_and_players(
+            cursor, initial_teams, initial_players, tournaments, new_release=next_release)
+        for tournament in tournaments:
+            dump_team_bonuses_for_tournament(cursor, schema, tournament)
+        # We run this before dumping release to create corresponding row in b.release if needed.
+        mark_release_as_just_updated(cursor, schema, next_release_date)
+        dump_release(cursor, schema, next_release, new_teams, new_players)

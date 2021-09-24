@@ -76,7 +76,17 @@ WSGI_APPLICATION = 'dj.wsgi.application'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 DATABASES = {
-    'default': private_settings.DJANGO_POSTRGES_DB,
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'OPTIONS': {
+                'options': '-c search_path=b,public'
+        },
+        'NAME':     private_settings.DJANGO_POSTRGES_DB_NAME,
+        'USER':     private_settings.DJANGO_POSTRGES_DB_USER,
+        'PASSWORD': private_settings.DJANGO_POSTRGES_DB_PASSWORD,
+        'HOST':     private_settings.DJANGO_POSTRGES_DB_HOST,
+        'PORT':     private_settings.DJANGO_POSTRGES_DB_PORT,
+    },
 }
 
 

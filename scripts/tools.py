@@ -33,7 +33,7 @@ def calc_score_real(predicted_scores, positions):
 
 # Find the gap between two releases in weeks.
 # There are no releases between 2020-04-03 and 2021-09-09; the gap between them is 1.
-# Releases before 2020-04-03 must be on Friday; releases after 2021-09-09 must be on Thursday.
+# Releases on and before LAST_OLD_RELEASE must be on Friday; releases on and after FIRST_NEW_RELEASE must be on Thursday.
 LAST_OLD_RELEASE = datetime.date(2020, 4, 3)
 FIRST_NEW_RELEASE = datetime.date(2021, 9, 9)
 THURSDAY = 3
@@ -62,8 +62,20 @@ def next_weekday(d, weekday):
 
 def get_release_date(tournament_end: datetime.date) -> datetime.date:
     if LAST_OLD_RELEASE < tournament_end < (FIRST_NEW_RELEASE - datetime.timedelta(days=7)):
-        raise AssertionError(f'{release} is between old releases and new releases.')
+        raise AssertionError(f'{tournament_end} is between old releases and new releases.')
     return next_weekday(tournament_end, FRIDAY if (tournament_end <= LAST_OLD_RELEASE) else THURSDAY)
+
+
+def get_prev_release_date(release_date: datetime.date) -> datetime.date:
+    if LAST_OLD_RELEASE < release_date < FIRST_NEW_RELEASE:
+        raise AssertionError(f'{release_date} is between old releases and new releases.')
+    if (release_date < LAST_OLD_RELEASE) and (release_date.weekday() != FRIDAY):
+        raise AssertionError(f'{release_date} is old but not on Friday.')
+    if (release_date > FIRST_NEW_RELEASE) and (release_date.weekday() != THURSDAY):
+        raise AssertionError(f'{release_date} is new but not on Thursday.')
+    if release_date == FIRST_NEW_RELEASE:
+        return LAST_OLD_RELEASE
+    return release_date - datetime.timedelta(days=7)
 
 
 # Find such n that we should multiply bonus for given tournament when calculating players bonuses for given release by 0.99^n.

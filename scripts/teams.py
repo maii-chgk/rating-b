@@ -1,25 +1,25 @@
-from api_util import get_teams_release
-from tools import calc_tech_rating
-from tournament import Tournament
-from players import PlayerRating
+from .api_util import get_teams_release
+from .tools import calc_tech_rating
+from .tournament import Tournament
+from .players import PlayerRating
 import pandas as pd
 import numpy as np
 
 
 class TeamRating:
-    def __init__(self, release_id=None, filename=None, teams_list=None):
-        if not (release_id or filename or teams_list):
+    def __init__(self, api_release_id=None, filename=None, teams_list=None):
+        if not (api_release_id or filename or teams_list):
             raise Exception('provide release id or file with rating!')
         self.q = 1
         if teams_list:
             self.data = pd.DataFrame(teams_list)
         else:
-            if release_id:
-                raw_rating = get_teams_release(release_id)
+            if api_release_id:
+                raw_rating = get_teams_release(api_release_id)
             else:
                 raw_rating = pd.read_csv(filename)
             raw_rating = raw_rating[['Ид', 'Рейтинг', 'ТРК по БС']]
-            raw_rating.columns = ['team_id', 'rating', 'trb']
+            raw_rating.columns = ['team_id', 'rating', 'rt']
             self.data = raw_rating
         self.data.set_index('team_id', inplace=True)
         self.data['prev_rating'] = 0

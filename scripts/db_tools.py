@@ -48,3 +48,15 @@ def get_base_teams_for_players(cursor, release_date: datetime.date) -> pd.Series
         + f'WHERE season_id={season_id} AND start_date::date <= \'{release_date.isoformat()}\';')
     bs_pd = pd.DataFrame(cursor.fetchall())
     return bs_pd.sort_values("start_date").groupby("player_id").last().base_team_id.astype("Int64")
+
+
+def get_tournament_end_date(cursor, tournament_id: int) -> datetime.date:
+    cursor.execute(f'SELECT end_datetime FROM public.rating_tournament WHERE id={tournament_id};')
+    return cursor.fetchone()[0].date()
+
+def get_tournament_end_dates(cursor) -> Dict[int, datetime.date]:
+    cursor.execute(f'SELECT id, end_datetime FROM public.rating_tournament;')
+    res = {}
+    for t_id, dt in cursor.fetchall():
+        res[t_id] = dt.date()
+    return res

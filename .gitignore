@@ -1,6 +1,5 @@
-private_data.py
-__pycache__/*
-dj/b/__pycache__/*
-dj/b/migrations/*
-dj/dj/__pycache__/*
-dj/dj/private_settings.py
+__pycache__/
+*.py[cod]
+b/migrations/*
+dj/private_settings.py
+scripts/private_data.py

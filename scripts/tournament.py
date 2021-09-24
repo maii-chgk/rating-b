@@ -1,21 +1,26 @@
-# from rating_api.tournaments import get_tournament_results
-from tools import rolling_window, calc_score_real
 import pandas as pd
 import numpy as np
 from typing import Any, Tuple, Set
+import numpy.typing as npt
 
+from scripts.tools import rolling_window, calc_score_real
+from b import models
+
+class EmptyTournamentException(Exception):
+    pass
 
 class Tournament:
-    def __init__(self, cursor, tournament_id: int):
+    def __init__(self, cursor, tournament_id: int, release: models.Release):
         cursor.execute(f'SELECT typeoft_id FROM rating_tournament WHERE id = {tournament_id}')
         self.type = cursor.fetchone()[0]
         self.coeff = self.tournament_type_to_coeff(self.type)
         self.id = tournament_id
+        self.release_id = release.id
         cursor.execute(f'SELECT rteam.id f1, rp.id f2, otr."inRating", rteam.title, rr.team_title, rr.total, rr.position, o_r.flag '
                        + 'FROM public.rating_result rr, public."rating_result_teamMembers" rrt, public.rating_tournament rt, public.rating_team rteam, '
                        + 'public.rating_player rp, public.rating_oldteamrating otr, public.rating_oldrating o_r '
                        + f'WHERE rt.id={tournament_id} AND rr.tournament_id=rt.id AND rrt.result_id=rr.id AND rteam.id=rr.team_id AND rrt.player_id=rp.id AND otr.result_id=rr.id '
-                       + f'AND rr.position!=9999 AND o_r.result_id=rr.id AND o_r.player_id=rp.id;')
+                       + f'AND rr.position!=9999 AND o_r.result_id=rr.id AND o_r.player_id=rp.id AND rr.position != 0;')
         teams = {}
         for team_id, player_id, in_rating, team_name, cur_title, total, position, flag in cursor.fetchall():
             if team_id not in teams:
@@ -38,7 +43,7 @@ class Tournament:
                 teams[team_id]['n_legs'] += 1
         print(f'Tournament id: {tournament_id}. teams: {len(teams)}')
         if len(teams) == 0:
-            raise Exception(f"Tournament {tournament_id} is empty!")
+            raise EmptyTournamentException(f"Tournament {tournament_id} is empty!")
         self.data = pd.DataFrame(teams.values())
         self.data['heredity'] = (self.data.n_base > 3) | (self.data.n_base == 3) & \
                                 (self.data.name == self.data.current_name)
@@ -52,7 +57,7 @@ class Tournament:
                                    np.minimum(self.data.rg, np.maximum(self.data.r, self.data.rt)))
 
     @staticmethod
-    def calculate_bonus_predictions(tournament_ratings: np.array, c=1):
+    def calculate_bonus_predictions(tournament_ratings: npt.ArrayLike, c=1):
         """
         produces array of bonuses based on the array of game ratings of participants
         :parameter tournament_ratings - sorted descendingly game ratings (rg) of teams
@@ -85,7 +90,16 @@ class Tournament:
             if team['heredity']:
                 team_rating.data.loc[team['team_id']]['rating'] += team['bonus']
             for player_id in team['teamMembers']:
-                player_rating.data.loc[player_id]['top_bonuses'].append((self.id, team['bonus'], team['bonus']))
+                bonus = models.Player_rating_by_tournament(
+                    release_id=self.release_id,
+                    player_id=player_id,
+                    weeks_since_tournament=0,
+                    tournament_id=self.id,
+                    initial_score=team['bonus'],
+                    cur_score=team['bonus'],
+                )
+                bonus.raw_cur_score = bonus.cur_score
+                player_rating.data.loc[player_id]['top_bonuses'].append(bonus)
         return team_rating, player_rating
 
     def get_new_player_ids(self, existing_players: Set[int]) -> Set[int]:
