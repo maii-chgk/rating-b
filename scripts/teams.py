@@ -9,7 +9,7 @@ import numpy as np
 class TeamRating:
     def __init__(self, api_release_id=None, filename=None, teams_list=None):
         if not (api_release_id or filename or teams_list):
-            raise Exception('provide release id or file with rating!')
+            raise Exception('provide release id, or file with rating, or list of dicts!')
         self.q = 1
         if teams_list:
             self.data = pd.DataFrame(teams_list)
@@ -41,7 +41,7 @@ class TeamRating:
         self.q = (top_h['rating'] / top_h['rating_raw']).mean()
 
     def calc_c(self):
-        ratings = self.data.rating.values
+        ratings = np.copy(self.data.rating.values)
         ratings[::-1].sort()
         return 2300 / ratings[:15].dot(2. ** np.arange(0, -15, -1))
 

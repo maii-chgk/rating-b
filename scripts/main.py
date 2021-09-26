@@ -25,10 +25,7 @@ POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
 
 # Reads the teams rating for given release_id.
 def get_team_rating(cursor, schema: str, release_id: int) -> TeamRating:
-    cursor.execute('SELECT team_id, rating, rt '
-                   + f'FROM {schema}.team_rating '
-                   + f'WHERE release_id={release_id};')
-    teams_list = [{'team_id': team_id, 'rating': rating, 'rt': rt} for team_id, rating, rt in cursor.fetchall()]
+    teams_list = list(models.Team_rating.objects.filter(release_id=release_id).values('team_id', 'rating', 'rt'))
     return TeamRating(teams_list=teams_list)
 
 
@@ -183,9 +180,11 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA):
     with db.get_cursor() as cursor:
         old_release_date = tools.get_prev_release_date(next_release_date)
         old_release = models.Release.objects.get(date=old_release_date)
+        print(f'Old release date: {old_release_date}, id: {old_release.id}')
         initial_teams = get_team_rating(cursor, schema, old_release.id)
 
         next_release, _ = models.Release.objects.get_or_create(date=next_release_date)
+        print(f'New release date: {next_release_date}, id: {next_release.id}')
         initial_players = PlayerRating(release=old_release,
                                        release_for_squads=next_release,
                                        cursor=cursor,
