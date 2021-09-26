@@ -9,6 +9,9 @@ class Team(models.Model):
 
 class Tournament(models.Model):
     title = models.CharField(verbose_name='Название', max_length=100)
+    maii_rating = models.BooleanField(verbose_name='Учитывается ли в рейтинге МАИИ')
+    start_datetime = models.DateTimeField(verbose_name='Начало отыгрыша')
+    end_datetime = models.DateTimeField(verbose_name='Конец отыгрыша')
     class Meta:
         db_table = "rating_tournament"
 

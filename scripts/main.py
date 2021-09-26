@@ -2,6 +2,7 @@ from postgres import Postgres
 import copy
 import datetime
 import pandas as pd
+from django.utils import timezone
 from typing import Iterable, List, Tuple
 
 from b import models
@@ -72,23 +73,22 @@ def get_api_release_date(release_id: int) -> datetime.date:
 def dump_release(cursor, schema: str, release: models.Release, team_rating: TeamRating,
                  player_rating: PlayerRating):
     # TODO: We don't need to dump players with rating 0
-    cursor.execute(
-        f'DELETE FROM {schema}.player_rating WHERE release_id={release.id};')
+    release.player_rating_set.all().delete()
+    release.team_rating_set.all().delete()
+    release.player_rating_by_tournament_set.all().delete()
+
     player_rows = [
         f'({player_id}, {release.id}, {player["rating"]}, {(player["rating"] - player["prev_rating"]) if player["prev_rating"] else "NULL"})'
         for player_id, player in player_rating.data.iterrows()]
     fast_insert(cursor, 'player_rating', 'player_id, release_id, rating, rating_change',
                 player_rows, schema)
 
-    cursor.execute(f'DELETE FROM {schema}.team_rating WHERE release_id={release.id};')
     team_rows = [
         f'({team_id}, {release.id}, {team["rating"]}, {team["rt"]}, {(team["rating"] - team["prev_rating"]) if team["prev_rating"] else "NULL"})'
         for team_id, team in team_rating.data.iterrows()]
     fast_insert(cursor, 'team_rating', 'team_id, release_id, rating, rt, rating_change', team_rows,
                 schema)
 
-    cursor.execute(
-        f'DELETE FROM {schema}.player_rating_by_tournament WHERE release_id={release.id};')
     bonuses_rows = []
     print('Total players:', len(player_rating.data.index))
     i = 0
@@ -115,28 +115,10 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
 
 # Saves tournament bonuses that were already calculated.
 def dump_team_bonuses_for_tournament(cursor, schema: str, trnmt: Tournament):
-    cursor.execute(f'DELETE FROM {schema}.tournament_result WHERE tournament_id={trnmt.id};')
-    rows = [f'({trnmt.id}, {team["team_id"]}, {0 if True else team["mp"]}, {team["score_pred"]}, {team["position"]}, {team["score_real"]}, {team["D1"]}, {team["D2"]}, {team["bonus"]})' for _, team in
-            trnmt.data.iterrows()]
+    models.Tournament_result.objects.filter(tournament_id=trnmt.id).delete()
+    rows = [f'({trnmt.id}, {team["team_id"]}, {0 if True else team["mp"]}, {team["score_pred"]}, {team["position"]}, {team["score_real"]}, {team["D1"]}, {team["D2"]}, {team["bonus"]})'
+        for _, team in trnmt.data.iterrows()]
     fast_insert(cursor, 'tournament_result', 'tournament_id, team_id, mp, bp, m, rating, d1, d2, rating_change', rows, schema)
-
-
-# Creates release row if it doesn't exist.
-# Marks the release with provided date as just updated.
-# Returns the ID of this release.
-def mark_release_as_just_updated(cursor, schema: str, release_date: datetime.date) -> int:
-    cursor.execute(
-        f'UPDATE {schema}.release SET updated_at=NOW() WHERE date=\'{release_date.isoformat()}\';')
-    if cursor.rowcount == 0:
-        # This means that there is now row with provided release_date yet
-        cursor.execute(
-            f'INSERT INTO {schema}.release (date, updated_at, created_at) VALUES (\'{release_date.isoformat()}\', NOW(), NOW());')
-    cursor.execute(
-        f'SELECT id FROM {schema}.release WHERE date=\'{release_date.isoformat()}\';')
-    release_id = cursor.fetchone()[0]
-    if release_id <= 0:
-        print(f'Wrong release.id for {release_date.isoformat()}: {release_id}!')
-    return release_id
 
 
 # Copies release (teams and players) with provided ID from API to provided schema in our DB
@@ -154,21 +136,21 @@ def import_release(api_release_id: int, schema: str=SCHEMA):
 
 
 # Loads tournaments from our DB that finish between given releases.
-def get_tournaments_for_release(cursor, old_release_date: datetime.date,
+def get_tournaments_for_release(cursor, old_release: models.Release,
                                 new_release: models.Release) -> List[Tournament]:
-    cursor.execute(f'SELECT id FROM public.rating_tournament WHERE end_datetime::date >= '
-                   f'\'{old_release_date.isoformat()}\' AND end_datetime::date < '
-                   f'\'{new_release.date.isoformat()}\' AND maii_rating;')
     tournaments = []
-    # We want only tournaments with available results
-    for row in cursor.fetchall():
+    for tournament_id in models.Tournament.objects.filter(
+            end_datetime__date__gt=old_release.date,
+            end_datetime__date__lte=new_release.date,
+            maii_rating=True).values_list('pk', flat=True):
+        # We need only tournaments with available results of at lease some teams.
         try:
-            tournament = Tournament(cursor, row[0], release=new_release)
+            tournament = Tournament(cursor, tournament_id=tournament_id, release=new_release)
             tournaments.append(tournament)
         except EmptyTournamentException:
-            print(f'Tournament with id {row[0]} has no results. Skipping')
+            print(f'Tournament with id {tournament_id} has no results. Skipping')
     print(
-        f'Tournaments between {old_release_date.isoformat()} and '
+        f'Tournaments between {old_release.date.isoformat()} and '
         f'{new_release.date}: {len(tournaments)}')
     return tournaments
 
@@ -189,12 +171,12 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA):
                                        release_for_squads=next_release,
                                        cursor=cursor,
                                        schema=schema)
-        tournaments = get_tournaments_for_release(cursor, old_release_date, next_release)
+        tournaments = get_tournaments_for_release(cursor, old_release, next_release)
 
         new_teams, new_players = make_step_for_teams_and_players(
             cursor, initial_teams, initial_players, tournaments, new_release=next_release)
         for tournament in tournaments:
             dump_team_bonuses_for_tournament(cursor, schema, tournament)
-        # We run this before dumping release to create corresponding row in b.release if needed.
-        mark_release_as_just_updated(cursor, schema, next_release_date)
         dump_release(cursor, schema, next_release, new_teams, new_players)
+        next_release.updated_at = timezone.now()
+        next_release.save()
