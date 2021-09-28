@@ -98,3 +98,8 @@ class PlayerRating:
         def sum_ratings_now(v: List[models.Player_rating_by_tournament]) -> int:
             return sum(x.cur_score for x in v)
         self.data['rating'] = self.data['top_bonuses'].map(sum_ratings_now)
+
+    # For debug purposes
+    def print_top_bonuses(self, player_id: int):
+        for item in self.data.loc[player_id]['top_bonuses']:
+            print(f'{item.tournament_id} {item.initial_score} {item.weeks_since_tournament} {item.cur_score}')

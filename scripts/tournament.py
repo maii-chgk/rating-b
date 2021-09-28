@@ -3,7 +3,7 @@ import numpy as np
 from typing import Any, Tuple, Set
 import numpy.typing as npt
 
-from scripts.tools import rolling_window, calc_score_real
+from scripts import tools
 from b import models
 
 class EmptyTournamentException(Exception):
@@ -45,8 +45,11 @@ class Tournament:
         if len(teams) == 0:
             raise EmptyTournamentException(f"Tournament {tournament_id} is empty!")
         self.data = pd.DataFrame(teams.values())
-        self.data['heredity'] = (self.data.n_base > 3) | (self.data.n_base == 3) & \
-                                (self.data.name == self.data.current_name)
+        if release.date < tools.FIRST_NEW_RELEASE:
+            self.data['heredity'] = (self.data.n_base > 3) | (self.data.n_base == 3) & \
+                                    (self.data.name == self.data.current_name)
+        else:
+            self.data['heredity'] = self.data.n_base > 3
 
     def add_ratings(self, team_rating, player_rating):
         self.data['rt'] = self.data.teamMembers.map(lambda x: player_rating.calc_rt(x, team_rating.q))
@@ -62,7 +65,7 @@ class Tournament:
         produces array of bonuses based on the array of game ratings of participants
         :parameter tournament_ratings - sorted descendingly game ratings (rg) of teams
         """
-        raw_preds = np.round(rolling_window(tournament_ratings, 15).dot(2.**np.arange(0, -15, -1)) * c)
+        raw_preds = np.round(tools.rolling_window(tournament_ratings, 15).dot(2.**np.arange(0, -15, -1)) * c)
         samesies = tournament_ratings[:-1] == tournament_ratings[1:]
         for ind in np.nonzero(samesies)[0]:
             raw_preds[ind + 1] = raw_preds[ind]
@@ -76,7 +79,7 @@ class Tournament:
     def calc_bonuses(self, team_rating):
         self.data.sort_values(by='rg', ascending=False, inplace=True)
         self.data['score_pred'] = self.calculate_bonus_predictions(self.data.rg.values, c=team_rating.c)
-        self.data['score_real'] = calc_score_real(self.data.score_pred.values, self.data.position.values)
+        self.data['score_real'] = tools.calc_score_real(self.data.score_pred.values, self.data.position.values)
         self.data['D1'] = self.calc_d1()
         self.data['D2'] = 300 * np.exp((self.data.score_real - 2300) / 350)
         self.data['bonus_raw'] = (self.coeff * (self.data['D1'] + self.data['D2'])).astype('int')
@@ -95,8 +98,8 @@ class Tournament:
                     player_id=player_id,
                     weeks_since_tournament=0,
                     tournament_id=self.id,
-                    initial_score=team['bonus'],
-                    cur_score=team['bonus'],
+                    initial_score=team['score_real'],
+                    cur_score=team['score_real'],
                 )
                 bonus.raw_cur_score = bonus.cur_score
                 player_rating.data.loc[player_id]['top_bonuses'].append(bonus)
