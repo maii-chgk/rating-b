@@ -30,23 +30,41 @@ class Release(models.Model):
         db_table = "release"
 
 class Team_rating(models.Model):
+    release = models.ForeignKey(Release, verbose_name='Релиз', on_delete=models.CASCADE)
     team = models.ForeignKey(Team, verbose_name='Команда', on_delete=models.PROTECT, null=True)
     # team_id = models.IntegerField(verbose_name='Команда')
-    release = models.ForeignKey(Release, verbose_name='Релиз', on_delete=models.CASCADE)
     rating = models.IntegerField(verbose_name='Рейтинг команды')
     rt = models.IntegerField(verbose_name='Технический рейтинг команды RT')
     rating_change = models.IntegerField(verbose_name='Изменение с прошлого релиза', null=True)
+    place = models.DecimalField(verbose_name='Место в релизе', max_digits=7, decimal_places=1, null=True)
+    place_change = models.DecimalField(verbose_name='Изменение места с прошлого релиза', max_digits=7, decimal_places=1, null=True)
     class Meta:
         db_table = "team_rating"
+        unique_together = (("release", "team", ), )
+        index_together = [
+            ["release", "team", "rating"],
+            ["release", "team", "rating_change"],
+            ["release", "team", "place"],
+            ["release", "team", "place_change"],
+        ]
 
 class Player_rating(models.Model):
+    release = models.ForeignKey(Release, verbose_name='Релиз', on_delete=models.CASCADE)
     player = models.ForeignKey(Player, verbose_name='Игрок', on_delete=models.CASCADE, null=True)
     # player_id = models.IntegerField(verbose_name='Игрок')
-    release = models.ForeignKey(Release, verbose_name='Релиз', on_delete=models.CASCADE)
     rating = models.IntegerField(verbose_name='Рейтинг игрока')
     rating_change = models.IntegerField(verbose_name='Изменение с прошлого релиза', null=True)
+    place = models.DecimalField(verbose_name='Место в релизе', max_digits=7, decimal_places=1, null=True)
+    place_change = models.DecimalField(verbose_name='Изменение места с прошлого релиза', max_digits=7, decimal_places=1, null=True)
     class Meta:
         db_table = "player_rating"
+        unique_together = (("release", "player", ), )
+        index_together = [
+            ["release", "player", "rating"],
+            ["release", "player", "rating_change"],
+            ["release", "player", "place"],
+            ["release", "player", "place_change"],
+        ]
 
 class Team_rating_by_player(models.Model):
     team_rating = models.ForeignKey(Team_rating, verbose_name='Рейтинг команды в релизе', on_delete=models.CASCADE)
@@ -56,12 +74,16 @@ class Team_rating_by_player(models.Model):
     contribution = models.IntegerField(verbose_name='Вклад игрока в TRB команды')
     class Meta:
         db_table = "team_rating_by_player"
+        unique_together = (("team_rating", "player", ), )
+        index_together = [
+            ["team_rating", "player", "order"],
+        ]
 
 class Tournament_result(models.Model):
-    team = models.ForeignKey(Team, verbose_name='Команда', on_delete=models.PROTECT, null=True)
-    # team_id = models.IntegerField(verbose_name='Команда')
     tournament = models.ForeignKey(Tournament, verbose_name='Турнир', on_delete=models.PROTECT, null=True)
     # tournament_id = models.IntegerField(verbose_name='Турнир')
+    team = models.ForeignKey(Team, verbose_name='Команда', on_delete=models.PROTECT, null=True)
+    # team_id = models.IntegerField(verbose_name='Команда')
     mp = models.DecimalField(verbose_name='Предсказанное место', max_digits=6, decimal_places=1)
     bp = models.IntegerField(verbose_name='Предсказанный балл')
     m = models.DecimalField(verbose_name='Занятое место', max_digits=6, decimal_places=1)
@@ -71,6 +93,16 @@ class Tournament_result(models.Model):
     rating_change = models.IntegerField(verbose_name='Результат команды на турнире D')
     class Meta:
         db_table = "tournament_result"
+        unique_together = (("tournament", "team", ), )
+        index_together = [
+            ["tournament", "team", "mp"],
+            ["tournament", "team", "bp"],
+            ["tournament", "team", "m"],
+            ["tournament", "team", "rating"],
+            ["tournament", "team", "d1"],
+            ["tournament", "team", "d2"],
+            ["tournament", "team", "rating_change"],
+        ]
 
 # We use either tournament_result (for new tournaments) or tournament+initial_score
 class Player_rating_by_tournament(models.Model):
@@ -86,6 +118,10 @@ class Player_rating_by_tournament(models.Model):
     raw_cur_score = None  # Float value for better precision
     class Meta:
         db_table = "player_rating_by_tournament"
+        unique_together = (("release", "player", "tournament_result"), ("release", "player", "tournament"), )
+        index_together = [
+            ["release", "player", "cur_score"],
+        ]
     def recalc_cur_score(self):
         self.weeks_since_tournament += 1
         self.raw_cur_score = self.initial_score * (constants.J ** self.weeks_since_tournament)
