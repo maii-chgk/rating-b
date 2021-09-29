@@ -91,6 +91,7 @@ class Tournament_result(models.Model):
     d1 = models.IntegerField(verbose_name='D1')
     d2 = models.IntegerField(verbose_name='D2')
     rating_change = models.IntegerField(verbose_name='Результат команды на турнире D')
+    is_in_maii_rating = models.BooleanField(verbose_name='Учитывается ли в рейтинге МАИИ')
     class Meta:
         db_table = 'tournament_result'
         unique_together = (('tournament', 'team', ), )

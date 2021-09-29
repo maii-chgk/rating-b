@@ -116,9 +116,21 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
 # Saves tournament bonuses that were already calculated.
 def dump_team_bonuses_for_tournament(cursor, schema: str, trnmt: Tournament):
     models.Tournament_result.objects.filter(tournament_id=trnmt.id).delete()
-    rows = [f'({trnmt.id}, {team["team_id"]}, {0 if True else team["mp"]}, {team["score_pred"]}, {team["position"]}, {team["score_real"]}, {team["D1"]}, {team["D2"]}, {team["bonus"]})'
-        for _, team in trnmt.data.iterrows()]
-    fast_insert(cursor, 'tournament_result', 'tournament_id, team_id, mp, bp, m, rating, d1, d2, rating_change', rows, schema)
+    rows = []
+    for _, team in trnmt.data.iterrows():
+        rows.append('(' + ', '.join(str(x) for x in [
+            trnmt.id,
+            team["team_id"],
+            0 if True else team["mp"], # TODO
+            team["score_pred"],
+            team["position"],
+            team["score_real"],
+            team["D1"],
+            team["D2"],
+            team["bonus"],
+            'TRUE' if team["heredity"] else 'FALSE',
+        ]) + ')')
+    fast_insert(cursor, 'tournament_result', 'tournament_id, team_id, mp, bp, m, rating, d1, d2, rating_change, is_in_maii_rating', rows, schema)
 
 
 # Copies release (teams and players) with provided ID from API to provided schema in our DB
