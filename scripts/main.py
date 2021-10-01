@@ -137,6 +137,7 @@ def dump_team_bonuses_for_tournament(cursor, schema: str, trnmt: Tournament):
 def import_release(api_release_id: int, schema: str=SCHEMA):
     team_rating = TeamRating(api_release_id=api_release_id)
     player_rating = PlayerRating(api_release_id=api_release_id)
+    # TODO: Also read top_bonuses for players
 
     release_date = get_api_release_date(api_release_id)
     release, _ = models.Release.objects.get_or_create(date=release_date)
@@ -182,7 +183,9 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA):
         initial_players = PlayerRating(release=old_release,
                                        release_for_squads=next_release,
                                        cursor=cursor,
-                                       schema=schema)
+                                       schema=schema,
+                                       take_top_bonuses_from_api=(old_release_date == tools.LAST_OLD_RELEASE) # TODO: Remove
+                                       )
         tournaments = get_tournaments_for_release(cursor, old_release, next_release)
 
         new_teams, new_players = make_step_for_teams_and_players(

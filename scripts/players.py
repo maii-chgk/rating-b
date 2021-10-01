@@ -11,7 +11,7 @@ from b import models
 
 class PlayerRating:
     def __init__(self, release=None, release_for_squads=None, file_path=None,
-                 cursor=None, schema='b', api_release_id=None):
+                 cursor=None, schema='b', api_release_id=None, take_top_bonuses_from_api=False):
         self.data = pd.DataFrame()
         if api_release_id:
             print(f'Creating PlayerRating by old API from release_id {api_release_id}')
@@ -32,33 +32,34 @@ class PlayerRating:
             raise Exception("no release is passed")
         if release_for_squads is None:
             raise Exception("no release for squads is passed")
-        cursor.execute('SELECT player_id, rating '
-                       + f'FROM {schema}.player_rating '
-                       + f'WHERE release_id={release.id};')
-        players_dict = {player_id: {'player_id': player_id, 'rating': rating, 'top_bonuses': []}
-                        for player_id, rating in cursor.fetchall()}
+        players_dict = {player_rating['player_id']: player_rating | {'top_bonuses': []}
+                        for player_rating in release.player_rating_set.values('player_id', 'rating')}
 
-        tournament_end_dates = db_tools.get_tournament_end_dates(cursor)
-        cursor.execute('SELECT player_id, tournament_id, rating_now, rating_original '
-                       + f'FROM public.rating_individual_old_details ORDER BY rating_now;')
-        n_weeks_by_tournament_id = {}
-        i = 0
-        for player_id, tournament_id, rating_now, rating_original in cursor.fetchall():
-            i += 1
-            if (i % 10000) == 0:
-                print (i, len(n_weeks_by_tournament_id))
-            if player_id in players_dict:
-                if tournament_id not in n_weeks_by_tournament_id:
-                    n_weeks_by_tournament_id[tournament_id] = get_age_in_weeks(tournament_end_dates[tournament_id], release_for_squads.date)
-                bonus = models.Player_rating_by_tournament(
-                    release_id=release.id,
-                    player_id=player_id,
-                    weeks_since_tournament=n_weeks_by_tournament_id[tournament_id],
-                    tournament_id=tournament_id,
-                    initial_score=rating_original,
-                    cur_score=rating_now,
-                )
-                players_dict[player_id]['top_bonuses'].append(bonus)
+        if take_top_bonuses_from_api: # TODO(alexey): remove this
+            tournament_end_dates = db_tools.get_tournament_end_dates(cursor)
+            cursor.execute('SELECT player_id, tournament_id, rating_now, rating_original '
+                           + f'FROM public.rating_individual_old_details ORDER BY rating_now;')
+            n_weeks_by_tournament_id = {}
+            i = 0
+            for player_id, tournament_id, rating_now, rating_original in cursor.fetchall():
+                i += 1
+                if (i % 10000) == 0:
+                    print (i, len(n_weeks_by_tournament_id))
+                if player_id in players_dict:
+                    if tournament_id not in n_weeks_by_tournament_id:
+                        n_weeks_by_tournament_id[tournament_id] = get_age_in_weeks(tournament_end_dates[tournament_id], release_for_squads.date)
+                    bonus = models.Player_rating_by_tournament(
+                        release_id=release.id,
+                        player_id=player_id,
+                        weeks_since_tournament=n_weeks_by_tournament_id[tournament_id],
+                        tournament_id=tournament_id,
+                        initial_score=rating_original,
+                        cur_score=rating_now,
+                    )
+                    players_dict[player_id]['top_bonuses'].append(bonus)
+        else:
+            for player_bonus in release.player_rating_by_tournament_set.all():
+                players_dict[player_bonus.player_id]['top_bonuses'].append(player_bonus)
         # adding base_team_ids
         self.data = pd.DataFrame(players_dict.values()).set_index("player_id").join(
             get_base_teams_for_players(cursor, release_for_squads.date), how='left')
