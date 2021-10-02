@@ -21,6 +21,20 @@ def calc_tech_rating(players_ratings, q=None):
     return tech_rating
 
 
+def calc_places(points: np.array) -> np.array:
+    """
+    given array of numbers that are treated that same kind of results or rankings, computes the
+    array of occupied places, e.g. [100, 200, 300, 200] -> [4, 2.5, 1, 2.5]
+    :param points: input array of some kind of results
+    :return: array of corresponding places
+    """
+    points_pd = pd.DataFrame(data=points, columns=['points'])
+    points_pd.sort_values(by='points', ascending=False, inplace=True)
+    points_pd['raw_places'] = np.arange(1, len(points) + 1)
+    points_pd['place'] = points_pd.groupby('points').transform("mean")
+    return points_pd.drop_duplicates("points").set_index("points").loc[points, "place"].values
+
+
 def calc_score_real(predicted_scores, positions):
     positions = positions - 1
     pos_counts = pd.Series(positions).value_counts().reset_index()
