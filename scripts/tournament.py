@@ -6,8 +6,10 @@ import numpy.typing as npt
 from scripts import tools
 from b import models
 
+
 class EmptyTournamentException(Exception):
     pass
+
 
 class Tournament:
     def __init__(self, cursor, tournament_id: int, release: models.Release):

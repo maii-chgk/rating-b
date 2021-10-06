@@ -31,8 +31,8 @@ def calc_places(points: np.array) -> np.array:
     points_pd = pd.DataFrame(data=points, columns=['points'])
     points_pd.sort_values(by='points', ascending=False, inplace=True)
     points_pd['raw_places'] = np.arange(1, len(points) + 1)
-    points_pd['place'] = points_pd.groupby('points').transform("mean")
-    return points_pd.drop_duplicates("points").set_index("points").loc[points, "place"].values
+    places_series = points_pd.groupby('points').raw_places.mean()
+    return places_series.loc[points].values
 
 
 def calc_score_real(predicted_scores, positions):
