@@ -6,8 +6,10 @@ import numpy.typing as npt
 from scripts import tools
 from b import models
 
+
 class EmptyTournamentException(Exception):
     pass
+
 
 class Tournament:
     def __init__(self, cursor, tournament_id: int, release: models.Release):
@@ -61,6 +63,7 @@ class Tournament:
         self.data['rg'] = np.where(self.data.rb, self.data.r * self.data.rt / self.data.rb, self.data.rt)
         self.data['rg'] = np.where(self.data.rt < self.data.rb, np.maximum(self.data.rg, 0.5 * self.data.r),
                                    np.minimum(self.data.rg, np.maximum(self.data.r, self.data.rt)))
+        self.data['expected_place'] = tools.calc_places(self.data['rg'])
 
     @staticmethod
     def calculate_bonus_predictions(tournament_ratings: npt.ArrayLike, c=1):
