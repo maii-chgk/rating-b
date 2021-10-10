@@ -40,6 +40,7 @@ def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_p
     new_player_ids = set()
     for tournament in tournaments:
         initial_teams.add_new_teams(tournament, initial_players)
+        print(f'Tournament {tournament.id}')
         tournament.add_ratings(initial_teams, initial_players)
         tournament.calc_bonuses(initial_teams)
         new_player_ids |= tournament.get_new_player_ids(existing_player_ids)
