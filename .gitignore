@@ -3,3 +3,5 @@ __pycache__/
 b/migrations/*
 dj/private_settings.py
 scripts/private_data.py
+.idea
+venv
