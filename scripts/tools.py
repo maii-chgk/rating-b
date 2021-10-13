@@ -2,16 +2,18 @@ import numpy as np
 import pandas as pd
 import datetime
 import decimal
+import numpy.typing as npt
+from typing import Optional
 
 
-def rolling_window(a, window):
+def rolling_window(a: npt.ArrayLike, window: int) -> npt.ArrayLike:
     a = np.append(a, np.zeros(window - 1))
     shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
     strides = a.strides + (a.strides[-1],)
     return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
 
 
-def calc_tech_rating(players_ratings, q=None):
+def calc_tech_rating(players_ratings: npt.ArrayLike, q: Optional[float]=None):
     pr_sorted = np.sort(players_ratings)[::-1]
     coeffs = np.zeros(pr_sorted.size)
     coeffs[:6] = (np.arange(6, 0, -1) / 6)[:coeffs.size]
@@ -21,21 +23,21 @@ def calc_tech_rating(players_ratings, q=None):
     return tech_rating
 
 
-def calc_places(points: np.array) -> np.array:
+def calc_places(points: npt.ArrayLike) -> npt.ArrayLike:
     """
     given array of numbers that are treated that same kind of results or rankings, computes the
     array of occupied places, e.g. [100, 200, 300, 200] -> [4, 2.5, 1, 2.5]
     :param points: input array of some kind of results
     :return: array of corresponding places
     """
-    points_pd = pd.DataFrame(data=points, columns=['points'])
+    points_pd = pd.DataFrame(data=list(points), columns=['points'])
     points_pd.sort_values(by='points', ascending=False, inplace=True)
     points_pd['raw_places'] = np.arange(1, len(points) + 1)
     places_series = points_pd.groupby('points').raw_places.mean()
     return places_series.loc[points].values
 
 
-def calc_score_real(predicted_scores, positions):
+def calc_score_real(predicted_scores: npt.ArrayLike, positions: npt.ArrayLike) -> npt.ArrayLike:
     positions = positions - 1
     pos_counts = pd.Series(positions).value_counts().reset_index()
     pos_counts.columns = ['pos', 'n_teams']
@@ -67,7 +69,7 @@ def get_releases_difference(release1: datetime.date, release2: datetime.date) ->
     return (release2 - release1).days // 7
 
 
-def next_weekday(d, weekday):
+def next_weekday(d: datetime.date, weekday: int) -> datetime.date:
     days_ahead = weekday - d.weekday()
     if days_ahead <= 0:  # Target day already happened this week
         days_ahead += 7
