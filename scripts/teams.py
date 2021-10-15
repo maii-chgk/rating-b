@@ -54,13 +54,11 @@ class TeamRating:
     def add_new_teams(self, tournament: Tournament, player_rating: PlayerRating):
         new_teams = tournament.data.loc[~tournament.data.team_id.isin(set(self.data.index)),
                                     ['team_id', 'baseTeamMembers']].set_index("team_id")
+        if len(new_teams.index) == 0:
+            return
         new_teams['rt'] = new_teams.baseTeamMembers.map(lambda x: player_rating.calc_rt(x, self.q))
         new_teams['rating'] = new_teams.rt * 0.8
-        if tournament.id == 7437:
-            print('new_teams before:\n', new_teams)
         new_teams['trb'] = player_rating.calc_tech_rating_all_teams(q=self.q)
-        if tournament.id == 7437:
-            print('new_teams after:\n', new_teams)
         new_teams['trb'].fillna(0, inplace=True)
         self.data = self.data.append(new_teams.drop("baseTeamMembers", axis=1))
 
