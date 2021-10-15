@@ -57,13 +57,10 @@ class Tournament:
         self.data['rt'] = self.data.teamMembers.map(lambda x: player_rating.calc_rt(x, team_rating.q))
         self.data['r'] = np.where(self.data.heredity, self.data.team_id.map(team_rating.get_team_rating), 0)
         self.data['rb'] = np.where(self.data.heredity, self.data.team_id.map(team_rating.get_trb), 0)
-        if self.id == 7437:
-            for _, team in self.data.iterrows():
-                print(team['team_id'], team['heredity'], type(team['r']), type(team['rb']))
         self.data['rg'] = np.where(self.data.rb, self.data.r * self.data.rt / self.data.rb, self.data.rt)
         self.data['rg'] = np.where(self.data.rt < self.data.rb, np.maximum(self.data.rg, 0.5 * self.data.r),
                                    np.minimum(self.data.rg, np.maximum(self.data.r, self.data.rt)))
-        self.data['expected_place'] = tools.calc_places(self.data['rg'])
+        self.data['expected_place'] = tools.calc_places(self.data['rg'].values)
 
     @staticmethod
     def calculate_bonus_predictions(tournament_ratings: npt.ArrayLike, c=1):

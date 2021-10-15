@@ -30,7 +30,7 @@ def calc_places(points: npt.ArrayLike) -> npt.ArrayLike:
     :param points: input array of some kind of results
     :return: array of corresponding places
     """
-    points_pd = pd.DataFrame(data=list(points), columns=['points'])
+    points_pd = pd.DataFrame(data=points, columns=['points'])
     points_pd.sort_values(by='points', ascending=False, inplace=True)
     points_pd['raw_places'] = np.arange(1, len(points) + 1)
     places_series = points_pd.groupby('points').raw_places.mean()
