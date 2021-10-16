@@ -40,11 +40,7 @@ class PlayerRating:
             cursor.execute('SELECT player_id, tournament_id, rating_now, rating_original '
                            + f'FROM public.rating_individual_old_details ORDER BY rating_now;')
             n_weeks_by_tournament_id = {}
-            i = 0
             for player_id, tournament_id, rating_now, rating_original in cursor.fetchall():
-                i += 1
-                if (i % 10000) == 0:
-                    print (i, len(n_weeks_by_tournament_id))
                 if player_id in players_dict:
                     if tournament_id not in n_weeks_by_tournament_id:
                         n_weeks_by_tournament_id[tournament_id] = get_age_in_weeks(tournament_end_dates[tournament_id], release_for_squads.date)

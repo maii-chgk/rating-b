@@ -3,7 +3,7 @@ import copy
 import datetime
 import pandas as pd
 from django.utils import timezone
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 from b import models
 from dj import private_settings
@@ -40,7 +40,6 @@ def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_p
     new_player_ids = set()
     for tournament in tournaments:
         initial_teams.add_new_teams(tournament, initial_players)
-        print(f'Tournament {tournament.id}')
         tournament.add_ratings(initial_teams, initial_players)
         tournament.calc_bonuses(initial_teams)
         new_player_ids |= tournament.get_new_player_ids(existing_player_ids)
@@ -78,6 +77,7 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
     release.team_rating_set.all().delete()
     release.player_rating_by_tournament_set.all().delete()
 
+    print(f'Dumping ratings for {len(player_rating.data.index)} players and {len(team_rating.data.index)} teams...')
     player_rows = [
         f'({player_id}, {release.id}, {player["rating"]}, {(player["rating"] - player["prev_rating"]) if player["prev_rating"] else "NULL"})'
         for player_id, player in player_rating.data.iterrows()]
@@ -91,12 +91,9 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
                 schema)
 
     bonuses_rows = []
-    print('Total players:', len(player_rating.data.index))
     i = 0
     for player_id, player in player_rating.data.iterrows():
         i += 1
-        if (i % 1000) == 0:
-            print(i, len(bonuses_rows))
         for player_rating_by_trnmt in player['top_bonuses']:
             bonuses_rows.append('(' + ', '.join(str(x) for x in [
                 release.id,
@@ -108,7 +105,7 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
                 player_rating_by_trnmt.weeks_since_tournament,
                 player_rating_by_trnmt.cur_score,
             ]) + ')')
-    print(f'Dumping player bonuses: {len(bonuses_rows)}')
+    print(f'Dumping {len(bonuses_rows)} player bonuses...')
     fast_insert(cursor, 'player_rating_by_tournament',
                 'release_id, player_id, tournament_result_id, tournament_id, initial_score, weeks_since_tournament, cur_score',
                 bonuses_rows, schema)
@@ -163,24 +160,21 @@ def get_tournaments_for_release(cursor, old_release: models.Release,
             tournaments.append(tournament)
         except EmptyTournamentException:
             print(f'Tournament with id {tournament_id} has no results. Skipping')
-    print(
-        f'Tournaments between {old_release.date.isoformat()} and '
-        f'{new_release.date}: {len(tournaments)}')
+    print(f'There are {len(tournaments)} tournaments with at least one result between {old_release.date} and {new_release.date}.')
     return tournaments
 
 
 # Reads teams and players for provided dates; finds tournaments for next release; calculates
 # new ratings and writes them to our DB.
-def calc_release(next_release_date: datetime.date, schema: str=SCHEMA):
-    db = Postgres(url=POSTGRES_URL)
+def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optional[Postgres] = None):
+    if db is None:
+        db = Postgres(url=POSTGRES_URL)
     with db.get_cursor() as cursor:
         old_release_date = tools.get_prev_release_date(next_release_date)
         old_release = models.Release.objects.get(date=old_release_date)
-        print(f'Old release date: {old_release_date}, id: {old_release.id}')
         initial_teams = get_team_rating(cursor, schema, old_release.id)
 
         next_release, _ = models.Release.objects.get_or_create(date=next_release_date)
-        print(f'New release date: {next_release_date}, id: {next_release.id}')
         initial_players = PlayerRating(release=old_release,
                                        release_for_squads=next_release,
                                        cursor=cursor,
@@ -189,6 +183,7 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA):
                                        )
         tournaments = get_tournaments_for_release(cursor, old_release, next_release)
 
+        print(f'Making a step from release {old_release_date} (id {old_release.id}) to release {next_release_date} (id {next_release.id})')
         new_teams, new_players = make_step_for_teams_and_players(
             cursor, initial_teams, initial_players, tournaments, new_release=next_release)
         for tournament in tournaments:
@@ -196,3 +191,18 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA):
         dump_release(cursor, schema, next_release, new_teams, new_players)
         next_release.updated_at = timezone.now()
         next_release.save()
+
+# Calculates all releases starting from FIRST_NEW_RELEASE until current date
+def calc_all_releases():
+    next_release_date = tools.FIRST_NEW_RELEASE
+    today = datetime.date.today()
+    time_started = datetime.datetime.now()
+    db = Postgres(url=POSTGRES_URL)
+    n_releases_calculated = 0
+    while next_release_date <= today:
+        calc_release(next_release_date=next_release_date, db=db)
+        n_releases_calculated += 1
+        next_release_date += datetime.timedelta(days=7)
+    time_spent = datetime.datetime.now() - time_started
+    print('Done! Releases calculated:', n_releases_calculated)
+    print(f'Total time spent: {time_spent}, time per release: {time_spent / n_releases_calculated}')

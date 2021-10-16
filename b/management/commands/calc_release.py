@@ -5,7 +5,7 @@ import datetime
 from scripts import main
 
 class Command(BaseCommand):
-	help = 'Sends individual Message_from_site by id'
+	help = 'Calculates one release based on the previous ones.'
 
 	def add_arguments(self, parser):
 		parser.add_argument('new_release_date')

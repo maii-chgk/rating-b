@@ -43,7 +43,6 @@ class Tournament:
                 teams[team_id]['baseTeamMembers'].append(player_id)
             else:
                 teams[team_id]['n_legs'] += 1
-        print(f'Tournament id: {tournament_id}. teams: {len(teams)}')
         if len(teams) == 0:
             raise EmptyTournamentException(f"Tournament {tournament_id} is empty!")
         self.data = pd.DataFrame(teams.values())
