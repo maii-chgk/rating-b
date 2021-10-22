@@ -119,7 +119,7 @@ def dump_team_bonuses_for_tournament(cursor, schema: str, trnmt: Tournament):
         rows.append('(' + ', '.join(str(x) for x in [
             trnmt.id,
             team["team_id"],
-            0 if True else team["mp"], # TODO
+            team["expected_place"],
             team["score_pred"],
             team["position"],
             team["score_real"],
