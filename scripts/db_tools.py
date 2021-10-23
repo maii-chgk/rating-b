@@ -44,7 +44,7 @@ def get_season_id(cursor, release_date: datetime.date) -> int:
 
 def get_base_teams_for_players(cursor, release_date: datetime.date) -> pd.Series:
     season_id = get_season_id(cursor, release_date)
-    cursor.execute(f'SELECT player_id, team_id base_team_id , start_date FROM public.rating_basesquad '
+    cursor.execute(f'SELECT player_id, team_id base_team_id , start_date FROM public.base_rosters '
         + f'WHERE season_id={season_id} AND start_date::date <= \'{release_date.isoformat()}\';')
     bs_pd = pd.DataFrame(cursor.fetchall())
     return bs_pd.sort_values("start_date").groupby("player_id").last().base_team_id.astype("Int64")
