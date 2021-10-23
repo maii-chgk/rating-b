@@ -13,38 +13,49 @@ class EmptyTournamentException(Exception):
 
 class Tournament:
     def __init__(self, cursor, tournament_id: int, release: models.Release):
-        cursor.execute(f'SELECT typeoft_id FROM rating_tournament WHERE id = {tournament_id}')
-        self.type = cursor.fetchone()[0]
+        tournament = models.Tournament.objects.get(pk=tournament_id)
+        self.type = tournament.typeoft_id
         self.coeff = self.tournament_type_to_coeff(self.type)
         self.id = tournament_id
         self.release_id = release.id
-        cursor.execute(f'SELECT rteam.id f1, rp.id f2, otr."inRating", rteam.title, rr.team_title, rr.total, rr.position, o_r.flag '
-                       + 'FROM public.rating_result rr, public."rating_result_teamMembers" rrt, public.rating_tournament rt, public.rating_team rteam, '
-                       + 'public.rating_player rp, public.rating_oldteamrating otr, public.rating_oldrating o_r '
-                       + f'WHERE rt.id={tournament_id} AND rr.tournament_id=rt.id AND rrt.result_id=rr.id AND rteam.id=rr.team_id AND rrt.player_id=rp.id AND otr.result_id=rr.id '
-                       + f'AND rr.position!=9999 AND o_r.result_id=rr.id AND o_r.player_id=rp.id AND rr.position != 0;')
         teams = {}
-        for team_id, player_id, in_rating, team_name, cur_title, total, position, flag in cursor.fetchall():
-            if team_id not in teams:
-                teams[team_id] = {
-                    'team_id': team_id,
-                    'name': team_name,
-                    'current_name': cur_title,
-                    'questionsTotal': total,
-                    'position': float(position), # it's of type Decimal (whatever it is) for some reason
-                    'n_base': 0,
-                    'n_legs': 0,
-                    'teamMembers': [],
-                    'baseTeamMembers': []
-                }
-            teams[team_id]['teamMembers'].append(player_id)
-            if flag in {'Б', 'К'}:
-                teams[team_id]['n_base'] += 1
-                teams[team_id]['baseTeamMembers'].append(player_id)
-            else:
-                teams[team_id]['n_legs'] += 1
+        print(f'Loading tournament {tournament_id}...')
+        for team_score in tournament.team_score_set.exclude(position__in=(0, 9999)).select_related('team'):
+            teams[team_score.team_id] = {
+                'team_id': team_score.team_id,
+                'name': team_score.team.title,
+                'current_name': team_score.title,
+                'questionsTotal': team_score.total,
+                'position': float(team_score.position), # it's of type Decimal (whatever it is) for some reason
+                'n_base': 0,
+                'n_legs': 0,
+                'teamMembers': [],
+                'baseTeamMembers': [],
+            }
         if len(teams) == 0:
             raise EmptyTournamentException(f"Tournament {tournament_id} is empty!")
+        # Doesn't work because public.tournament_rosters is outdated
+        # for team_player in tournament.roster_set.all():
+        #     if team_player.team_id not in teams:
+        #         print(f'Player {team_player.player_id} is in roster of team {team_player.team_id} for tournament {tournament_id} but the team did not play there!')
+        #         continue
+        #     teams[team_player.team_id]['teamMembers'].append(team_player.player_id)
+        #     if team_player.flag == 'Б':
+        #         teams[team_player.team_id]['n_base'] += 1
+        #         teams[team_player.team_id]['baseTeamMembers'].append(team_player.player_id)
+        #     else:
+        #         teams[team_player.team_id]['n_legs'] += 1
+        for team_player in models.Roster_old.objects.filter(team_score__tournament_id=tournament_id).exclude(team_score__position__in=(0, 9999)).select_related('team_score'):
+            team_score = team_player.team_score
+            if team_score.team_id not in teams:
+                print(f'Player {team_player.player_id} is in roster of team {team_score.team_id} (rating_result id: {team_score.id}) for tournament {tournament_id} but the team did not play there!')
+                continue
+            teams[team_score.team_id]['teamMembers'].append(team_player.player_id)
+            if team_player.flag in {'Б', 'К'}:
+                teams[team_score.team_id]['n_base'] += 1
+                teams[team_score.team_id]['baseTeamMembers'].append(team_player.player_id)
+            else:
+                teams[team_score.team_id]['n_legs'] += 1
         self.data = pd.DataFrame(teams.values())
         if release.date < tools.FIRST_NEW_RELEASE:
             self.data['heredity'] = (self.data.n_base > 3) | (self.data.n_base == 3) & \
@@ -117,11 +128,11 @@ class Tournament:
 
     @staticmethod
     def tournament_type_to_coeff(ttype: int) -> float:
-        if ttype in {2, 4}:
+        if ttype in {models.TRNMT_TYPE_REGULAR, models.TRNMT_TYPE_REGIONAL}:
             return 1.0
-        if ttype == 6:
+        if ttype == models.TRNMT_TYPE_STRICT_SYNCHRONOUS:
             return 2./3.
-        if ttype == 3:
+        if ttype == models.TRNMT_TYPE_SYNCHRONOUS:
             return 0.5
         else:
             raise Exception(f"tournament type {ttype} is not supported!")

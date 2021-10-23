@@ -173,8 +173,9 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
         old_release_date = tools.get_prev_release_date(next_release_date)
         old_release = models.Release.objects.get(date=old_release_date)
         initial_teams = get_team_rating(cursor, schema, old_release.id)
-
         next_release, _ = models.Release.objects.get_or_create(date=next_release_date)
+
+        print(f'Making a step from release {old_release_date} (id {old_release.id}) to release {next_release_date} (id {next_release.id})')
         initial_players = PlayerRating(release=old_release,
                                        release_for_squads=next_release,
                                        cursor=cursor,
@@ -182,8 +183,6 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
                                        take_top_bonuses_from_api=(old_release_date == tools.LAST_OLD_RELEASE) # TODO: Remove
                                        )
         tournaments = get_tournaments_for_release(cursor, old_release, next_release)
-
-        print(f'Making a step from release {old_release_date} (id {old_release.id}) to release {next_release_date} (id {next_release.id})')
         new_teams, new_players = make_step_for_teams_and_players(
             cursor, initial_teams, initial_players, tournaments, new_release=next_release)
         for tournament in tournaments:

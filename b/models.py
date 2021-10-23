@@ -2,13 +2,37 @@ from django.db import models
 
 from scripts import constants
 
+
+### Tables from 'public' scheme. Read-only.
+
 class Team(models.Model):
     title = models.CharField(verbose_name='Название', max_length=250)
     class Meta:
         db_table = 'rating_team'
 
+TRNMT_TYPE_UNKNOWN = 1
+TRNMT_TYPE_REGULAR = 2
+TRNMT_TYPE_SYNCHRONOUS = 3
+TRNMT_TYPE_REGIONAL = 4
+TRNMT_TYPE_OVERALL = 5
+TRNMT_TYPE_STRICT_SYNCHRONOUS = 6
+TRNMT_TYPE_ASYNCHRONOUS = 8
+TRNMT_TYPE_MARATHON = 10
+TRNMT_TYPE_ONLINE = 11
+TRNMT_TYPES = {
+    TRNMT_TYPE_UNKNOWN: 'Неизвестный',
+    TRNMT_TYPE_REGULAR: 'Обычный',
+    TRNMT_TYPE_SYNCHRONOUS: 'Синхрон',
+    TRNMT_TYPE_REGIONAL: 'Региональный',
+    TRNMT_TYPE_OVERALL: 'Общий зачёт',
+    TRNMT_TYPE_STRICT_SYNCHRONOUS: 'Строго синхронный',
+    TRNMT_TYPE_ASYNCHRONOUS: 'Асинхрон',
+    TRNMT_TYPE_MARATHON: 'Марафон',
+    TRNMT_TYPE_ONLINE: 'Онлайн',
+}
 class Tournament(models.Model):
     title = models.CharField(verbose_name='Название', max_length=100)
+    typeoft_id = models.SmallIntegerField(verbose_name='Тип турнира', choices=TRNMT_TYPES.items())
     maii_rating = models.BooleanField(verbose_name='Учитывается ли в рейтинге МАИИ')
     start_datetime = models.DateTimeField(verbose_name='Начало отыгрыша')
     end_datetime = models.DateTimeField(verbose_name='Конец отыгрыша')
@@ -21,6 +45,37 @@ class Player(models.Model):
     patronymic = models.CharField(verbose_name='Отчество', max_length=100)
     class Meta:
         db_table = 'rating_player'
+
+class Team_score(models.Model): # Очки команды на данном турнире
+    tournament = models.ForeignKey(Tournament, verbose_name='Турнир', on_delete=models.CASCADE)
+    team = models.ForeignKey(Team, verbose_name='Команда', on_delete=models.CASCADE)
+    title = models.CharField(verbose_name='Название команды на турнире', max_length=250, db_column='team_title')
+    total = models.SmallIntegerField(verbose_name='Число взятых вопросов')
+    position = models.DecimalField(verbose_name='Занятое место', default=0, max_digits=5, decimal_places=1)
+    class Meta:
+        db_table = 'rating_result'
+        unique_together = (('tournament', 'team', ), )
+
+class Roster(models.Model): # Состав команды на данном турнире
+    tournament = models.ForeignKey(Tournament, verbose_name='Турнир', on_delete=models.CASCADE)
+    team = models.ForeignKey(Team, verbose_name='Команда', on_delete=models.CASCADE)
+    player = models.ForeignKey(Player, verbose_name='Игрок', on_delete=models.CASCADE)
+    flag = models.CharField(verbose_name='Флаг (Б или Л)', max_length=1, null=True)
+    is_captain = models.BooleanField(verbose_name='Капитан ли команды')
+    class Meta:
+        db_table = 'tournament_rosters'
+        unique_together = (('tournament', 'team', 'player', ), )
+
+class Roster_old(models.Model): # Состав команды на данном турнире по данным более старой таблички
+    team_score = models.ForeignKey(Team_score, verbose_name='Команда и турнир', on_delete=models.CASCADE, db_column='result_id')
+    player = models.ForeignKey(Player, verbose_name='Игрок', on_delete=models.CASCADE)
+    flag = models.CharField(verbose_name='Флаг (К или Б или Л)', max_length=1, null=True)
+    class Meta:
+        db_table = 'rating_oldrating'
+        unique_together = (('team_score', 'player', ), )
+
+
+### Tables from 'b' scheme. We can write to them.
 
 class Release(models.Model):
     title = models.CharField(verbose_name='Название', max_length=250)
