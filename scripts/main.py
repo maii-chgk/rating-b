@@ -26,7 +26,7 @@ POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
 
 # Reads the teams rating for given release_id.
 def get_team_rating(cursor, schema: str, release_id: int) -> TeamRating:
-    teams_list = list(models.Team_rating.objects.filter(release_id=release_id).values('team_id', 'rating', 'rt'))
+    teams_list = list(models.Team_rating.objects.filter(release_id=release_id).values('team_id', 'rating', 'trb'))
     return TeamRating(teams_list=teams_list)
 
 
@@ -85,9 +85,9 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
                 player_rows, schema)
 
     team_rows = [
-        f'({team_id}, {release.id}, {team["rating"]}, {team["rt"]}, {(team["rating"] - team["prev_rating"]) if team["prev_rating"] else "NULL"})'
+        f'({team_id}, {release.id}, {team["rating"]}, {team["trb"]}, {(team["rating"] - team["prev_rating"]) if team["prev_rating"] else "NULL"})'
         for team_id, team in team_rating.data.iterrows()]
-    fast_insert(cursor, 'team_rating', 'team_id, release_id, rating, rt, rating_change', team_rows,
+    fast_insert(cursor, 'team_rating', 'team_id, release_id, rating, trb, rating_change', team_rows,
                 schema)
 
     bonuses_rows = []

@@ -19,7 +19,7 @@ class TeamRating:
             else:
                 raw_rating = pd.read_csv(filename)
             raw_rating = raw_rating[['Ид', 'Рейтинг', 'ТРК по БС']]
-            raw_rating.columns = ['team_id', 'rating', 'rt']
+            raw_rating.columns = ['team_id', 'rating', 'trb']
             self.data = raw_rating
         self.data.set_index('team_id', inplace=True)
         self.data['prev_rating'] = 0
@@ -56,10 +56,9 @@ class TeamRating:
                                     ['team_id', 'baseTeamMembers']].set_index("team_id")
         if len(new_teams.index) == 0:
             return
-        new_teams['rt'] = new_teams.baseTeamMembers.map(lambda x: player_rating.calc_rt(x, self.q))
-        new_teams['rating'] = new_teams.rt * 0.8
-        new_teams['trb'] = player_rating.calc_tech_rating_all_teams(q=self.q)
+        new_teams['trb'] = new_teams.baseTeamMembers.map(lambda x: player_rating.calc_rt(x, self.q))
         new_teams['trb'].fillna(0, inplace=True)
+        new_teams['rating'] = new_teams['trb'] * 0.8
         self.data = self.data.append(new_teams.drop("baseTeamMembers", axis=1))
 
     def calc_trb(self, player_rating: PlayerRating):
