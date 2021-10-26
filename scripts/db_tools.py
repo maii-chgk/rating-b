@@ -50,9 +50,19 @@ def get_base_teams_for_players(cursor, release_date: datetime.date) -> pd.Series
     return bs_pd.sort_values("start_date").groupby("player_id").last().base_team_id.astype("Int64")
 
 
+def get_teams_with_new_players(cursor, old_release: datetime.date, new_release: datetime.date):
+    old_string = old_release.isoformat()
+    new_string = new_release.isoformat()
+    query = f"SELECT DISTINCT team_id FROM public.base_rosters " \
+            f"WHERE start_date <= \'{new_string}\' AND start_date > \'{old_string}\';"
+    cursor.execute(query)
+    return [entry.team_id for entry in cursor.fetchall()]
+
+
 def get_tournament_end_date(cursor, tournament_id: int) -> datetime.date:
     cursor.execute(f'SELECT end_datetime FROM public.rating_tournament WHERE id={tournament_id};')
     return cursor.fetchone()[0].date()
+
 
 def get_tournament_end_dates(cursor) -> Dict[int, datetime.date]:
     cursor.execute(f'SELECT id, end_datetime FROM public.rating_tournament;')

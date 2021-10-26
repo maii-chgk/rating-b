@@ -13,7 +13,7 @@ from . import tools
 from .teams import TeamRating
 from .players import PlayerRating
 from .tournament import EmptyTournamentException, Tournament
-from .db_tools import get_release_id, fast_insert, get_base_teams_for_players
+from .db_tools import get_teams_with_new_players, fast_insert, get_base_teams_for_players
 
 SCHEMA = 'b'
 POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
@@ -34,8 +34,6 @@ def get_team_rating(cursor, schema: str, release_id: int) -> TeamRating:
 def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_players: PlayerRating,
                  tournaments: Iterable[Tournament],
                  new_release: models.Release) -> Tuple[TeamRating, PlayerRating]:
-    initial_teams.update_q(initial_players)
-    initial_teams.calc_trb(initial_players)
     existing_player_ids = set(initial_players.data.index)
     new_player_ids = set()
     for tournament in tournaments:
@@ -182,6 +180,10 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
                                        schema=schema,
                                        take_top_bonuses_from_api=(old_release_date == tools.LAST_OLD_RELEASE) # TODO: Remove
                                        )
+        initial_teams.update_q(initial_players)
+        initial_teams.calc_trb(initial_players)
+        changed_teams = get_teams_with_new_players(cursor, old_release_date, next_release_date)
+        initial_teams.update_ratings_for_changed_teams(changed_teams)
         tournaments = get_tournaments_for_release(cursor, old_release, next_release)
         new_teams, new_players = make_step_for_teams_and_players(
             cursor, initial_teams, initial_players, tournaments, new_release=next_release)

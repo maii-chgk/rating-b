@@ -51,6 +51,11 @@ class TeamRating:
     def get_trb(self, team_id):
         return self.data.trb.get(team_id, 0)
 
+    def update_ratings_for_changed_teams(self, changed_teams):
+        existing_teams = [t for t in changed_teams if t in set(self.data.index)]
+        self.data.loc[existing_teams, 'rating'] = np.maximum(
+            self.data.loc[existing_teams, 'rating'], self.data.loc[existing_teams, "trb"] * 0.8)
+
     def add_new_teams(self, tournament: Tournament, player_rating: PlayerRating):
         new_teams = tournament.data.loc[~tournament.data.team_id.isin(set(self.data.index)),
                                     ['team_id', 'baseTeamMembers']].set_index("team_id")
