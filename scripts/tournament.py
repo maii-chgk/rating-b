@@ -34,28 +34,16 @@ class Tournament:
             }
         if len(teams) == 0:
             raise EmptyTournamentException(f"Tournament {tournament_id} is empty!")
-        # Doesn't work because public.tournament_rosters is outdated
-        # for team_player in tournament.roster_set.all():
-        #     if team_player.team_id not in teams:
-        #         print(f'Player {team_player.player_id} is in roster of team {team_player.team_id} for tournament {tournament_id} but the team did not play there!')
-        #         continue
-        #     teams[team_player.team_id]['teamMembers'].append(team_player.player_id)
-        #     if team_player.flag == 'Б':
-        #         teams[team_player.team_id]['n_base'] += 1
-        #         teams[team_player.team_id]['baseTeamMembers'].append(team_player.player_id)
-        #     else:
-        #         teams[team_player.team_id]['n_legs'] += 1
-        for team_player in models.Roster_old.objects.filter(team_score__tournament_id=tournament_id).exclude(team_score__position__in=(0, 9999)).select_related('team_score'):
-            team_score = team_player.team_score
-            if team_score.team_id not in teams:
-                print(f'Player {team_player.player_id} is in roster of team {team_score.team_id} (rating_result id: {team_score.id}) for tournament {tournament_id} but the team did not play there!')
+        for team_player in tournament.roster_set.all():
+            if team_player.team_id not in teams:
+                print(f'Player {team_player.player_id} is in roster of team {team_player.team_id} for tournament {tournament_id} but the team did not play there!')
                 continue
-            teams[team_score.team_id]['teamMembers'].append(team_player.player_id)
-            if team_player.flag in {'Б', 'К'}:
-                teams[team_score.team_id]['n_base'] += 1
-                teams[team_score.team_id]['baseTeamMembers'].append(team_player.player_id)
+            teams[team_player.team_id]['teamMembers'].append(team_player.player_id)
+            if team_player.flag == 'Б':
+                teams[team_player.team_id]['n_base'] += 1
+                teams[team_player.team_id]['baseTeamMembers'].append(team_player.player_id)
             else:
-                teams[team_score.team_id]['n_legs'] += 1
+                teams[team_player.team_id]['n_legs'] += 1
         self.data = pd.DataFrame(teams.values())
         if release.date < tools.FIRST_NEW_RELEASE:
             self.data['heredity'] = (self.data.n_base > 3) | (self.data.n_base == 3) & \
