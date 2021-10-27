@@ -3,7 +3,7 @@ from typing import List, Tuple
 
 from .tools import calc_tech_rating, get_age_in_weeks
 from .api_util import get_players_release
-from .db_tools import get_release_id, get_base_teams_for_players, get_tournament_end_date
+from .db_tools import get_base_teams_for_players, get_tournament_end_date
 from scripts import constants
 from scripts import db_tools
 from b import models

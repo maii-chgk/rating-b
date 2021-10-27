@@ -72,6 +72,16 @@ class Season(models.Model):
     class Meta:
         db_table = 'rating_season'
 
+class Season_roster(models.Model): # Базовый состав команды в данном сезоне
+    season = models.ForeignKey(Season, verbose_name='Сезон', on_delete=models.PROTECT)
+    team = models.ForeignKey(Team, verbose_name='Команда', on_delete=models.CASCADE)
+    player = models.ForeignKey(Player, verbose_name='Игрок', on_delete=models.CASCADE)
+    start_date = models.DateField(verbose_name='Дата входа в БС', null=True)
+    end_date = models.DateField(verbose_name='Дата выхода из БС', null=True)
+    class Meta:
+        db_table = 'base_rosters'
+        unique_together = (('season', 'team', 'player', ), )
+
 
 ### Tables from 'b' scheme. We can write to them.
 
