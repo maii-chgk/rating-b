@@ -87,6 +87,8 @@ class Team_rating(models.Model):
     team = models.ForeignKey(Team, verbose_name='Команда', on_delete=models.PROTECT, null=True)
     # team_id = models.IntegerField(verbose_name='Команда')
     rating = models.IntegerField(verbose_name='Рейтинг команды')
+    rating_for_next_release = models.IntegerField(verbose_name='Рейтинг команды, использующийся для следующего релиза; непусто, только если рейтинг был пересчитан из-за изменения БС',
+        null=True, default=None)
     trb = models.IntegerField(verbose_name='Технический рейтинг команды по ее базовому составу TRB')
     rating_change = models.IntegerField(verbose_name='Изменение с прошлого релиза', null=True)
     place = models.DecimalField(verbose_name='Место в релизе', max_digits=7, decimal_places=1, null=True)
