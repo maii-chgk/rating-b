@@ -66,13 +66,11 @@ class Roster(models.Model): # Состав команды на данном ту
         db_table = 'tournament_rosters'
         unique_together = (('tournament', 'team', 'player', ), )
 
-class Roster_old(models.Model): # Состав команды на данном турнире по данным более старой таблички
-    team_score = models.ForeignKey(Team_score, verbose_name='Команда и турнир', on_delete=models.CASCADE, db_column='result_id')
-    player = models.ForeignKey(Player, verbose_name='Игрок', on_delete=models.CASCADE)
-    flag = models.CharField(verbose_name='Флаг (К или Б или Л)', max_length=1, null=True)
+class Season(models.Model):
+    start = models.DateTimeField(verbose_name='Начало сезона')
+    end = models.DateTimeField(verbose_name='Конец сезона')
     class Meta:
-        db_table = 'rating_oldrating'
-        unique_together = (('team_score', 'player', ), )
+        db_table = 'rating_season'
 
 
 ### Tables from 'b' scheme. We can write to them.
@@ -102,6 +100,17 @@ class Team_rating(models.Model):
             ['release', 'team', 'place'],
             ['release', 'team', 'place_change'],
         ]
+
+# When given team lost heredity to the previous season.
+class Team_lost_heredity(models.Model):
+    season = models.ForeignKey(Season, verbose_name='Сезон', on_delete=models.PROTECT)
+    # season_id = models.IntegerField(verbose_name='Сезон')
+    team = models.ForeignKey(Team, verbose_name='Команда', on_delete=models.PROTECT)
+    # team_id = models.IntegerField(verbose_name='Команда')
+    date = models.DateField(verbose_name='Дата релиза, в котором мы пересчитали рейтинг команды; преемственность утрачена на одном из турниров после этого релиза')
+    class Meta:
+        db_table = 'team_lost_heredity'
+        unique_together = (('season', 'team', ), )
 
 class Player_rating(models.Model):
     release = models.ForeignKey(Release, verbose_name='Релиз', on_delete=models.CASCADE)
