@@ -4,6 +4,7 @@ from .tournament import Tournament
 from .players import PlayerRating
 import pandas as pd
 import numpy as np
+from typing import List, Tuple
 
 
 class TeamRating:
@@ -51,15 +52,22 @@ class TeamRating:
     def get_trb(self, team_id):
         return self.data.trb.get(team_id, 0)
 
-    def update_ratings_for_changed_teams(self, changed_teams):
+    # Returns tuples of team IDs with changed rating along with new rating
+    # TODO: add a separate test for this!
+    def update_ratings_for_changed_teams(self, changed_teams) -> List[Tuple[int, int]]:
         existing_teams = [t for t in changed_teams if t in set(self.data.index)]
-        self.data.loc[existing_teams, 'rating'] = np.maximum(
+        self.data['updated_rating'] = self.data['rating']
+        self.data.loc[existing_teams, 'updated_rating'] = np.maximum(
             self.data.loc[existing_teams, 'rating'], self.data.loc[existing_teams, "trb"] * 0.8)
+        res = []
+        for team_id, team in self.data[self.data['rating'] != self.data['updated_rating']].iterrows():
+            res.append((team_id, team['updated_rating']))
+        return res
 
     def add_new_teams(self, tournament: Tournament, player_rating: PlayerRating):
         new_teams = tournament.data.loc[~tournament.data.team_id.isin(set(self.data.index)),
                                     ['team_id', 'baseTeamMembers']].set_index("team_id")
-        if len(new_teams.index) == 0:
+        if len(new_teams.index) == 0: # Otherwise some strange things happen in the next lines.
             return
         new_teams['trb'] = new_teams.baseTeamMembers.map(lambda x: player_rating.calc_rt(x, self.q))
         new_teams['trb'].fillna(0, inplace=True)

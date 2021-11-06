@@ -3,7 +3,6 @@ from typing import List, Tuple
 
 from .tools import calc_tech_rating, get_age_in_weeks
 from .api_util import get_players_release
-from .db_tools import get_base_teams_for_players, get_tournament_end_date
 from scripts import constants
 from scripts import db_tools
 from b import models
@@ -58,7 +57,7 @@ class PlayerRating:
                 players_dict[player_bonus.player_id]['top_bonuses'].append(player_bonus)
         # adding base_team_ids
         self.data = pd.DataFrame(players_dict.values()).set_index("player_id").join(
-            get_base_teams_for_players(cursor, release_for_squads.date), how='left')
+            db_tools.get_base_teams_for_players(cursor, release_for_squads.date), how='left')
 
     def calc_rt(self, player_ids, q=None):
         """

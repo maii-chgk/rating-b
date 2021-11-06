@@ -124,10 +124,20 @@ def dump_team_bonuses_for_tournament(cursor, schema: str, trnmt: Tournament):
             team["D1"],
             team["D2"],
             team["bonus"],
+            team["r"],
+            team["rt"],
+            team["rb"],
+            team["rg"],
             'TRUE' if team["heredity"] else 'FALSE',
         ]) + ')')
-    fast_insert(cursor, 'tournament_result', 'tournament_id, team_id, mp, bp, m, rating, d1, d2, rating_change, is_in_maii_rating', rows, schema)
+    fast_insert(cursor, 'tournament_result', 'tournament_id, team_id, mp, bp, m, rating, d1, d2, rating_change, r, rt, rb, rg, is_in_maii_rating', rows, schema)
 
+def dump_rating_for_next_release(old_release: models.Release, teams_with_updated_rating: List[Tuple[int, int]]):
+    for team_id, new_rating in teams_with_updated_rating:
+        n_changed = old_release.team_rating_set.filter(team_id=team_id).update(rating_for_next_release=new_rating)
+        if n_changed != 1:
+            print('dump_rating_for_next_release: there is problem with updating team_rating.rating_for_next_release for '
+                + f'team_id {team_id}, new rating {new_rating}: {n_changed} rows are affected.')
 
 # Copies release (teams and players) with provided ID from API to provided schema in our DB
 def import_release(api_release_id: int, schema: str=SCHEMA):
@@ -182,8 +192,11 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
                                        )
         initial_teams.update_q(initial_players)
         initial_teams.calc_trb(initial_players)
-        changed_teams = get_teams_with_new_players(cursor, old_release_date, next_release_date)
-        initial_teams.update_ratings_for_changed_teams(changed_teams)
+
+        changed_teams = get_teams_with_new_players(old_release_date, next_release_date)
+        teams_with_updated_rating = initial_teams.update_ratings_for_changed_teams(changed_teams)
+        dump_rating_for_next_release(old_release, teams_with_updated_rating)
+
         tournaments = get_tournaments_for_release(cursor, old_release, next_release)
         new_teams, new_players = make_step_for_teams_and_players(
             cursor, initial_teams, initial_players, tournaments, new_release=next_release)
