@@ -56,12 +56,13 @@ class TeamRating:
     # TODO: add a separate test for this!
     def update_ratings_for_changed_teams(self, changed_teams) -> List[Tuple[int, int]]:
         existing_teams = [t for t in changed_teams if t in set(self.data.index)]
-        self.data['updated_rating'] = self.data['rating']
-        self.data.loc[existing_teams, 'updated_rating'] = np.maximum(
+        self.data['old_release_rating'] = self.data['rating']
+        self.data.loc[existing_teams, 'rating'] = np.maximum(
             self.data.loc[existing_teams, 'rating'], self.data.loc[existing_teams, "trb"] * 0.8)
         res = []
-        for team_id, team in self.data[self.data['rating'] != self.data['updated_rating']].iterrows():
-            res.append((team_id, team['updated_rating']))
+        for team_id, team in self.data[self.data['old_release_rating'] != self.data['rating']].iterrows():
+            res.append((team_id, team['rating']))
+        self.data.drop(columns=['old_release_rating'], inplace=True)
         return res
 
     def add_new_teams(self, tournament: Tournament, player_rating: PlayerRating):
