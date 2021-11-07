@@ -33,7 +33,7 @@ class Tournament:
                 'baseTeamMembers': [],
             }
         if len(teams) == 0:
-            raise EmptyTournamentException(f"Tournament {tournament_id} is empty!")
+            raise EmptyTournamentException(f"There are no teams.")
         for team_player in tournament.roster_set.all():
             if team_player.team_id not in teams:
                 print(f'Player {team_player.player_id} is in roster of team {team_player.team_id} for tournament {tournament_id} but the team did not play there!')
@@ -44,6 +44,10 @@ class Tournament:
                 teams[team_player.team_id]['baseTeamMembers'].append(team_player.player_id)
             else:
                 teams[team_player.team_id]['n_legs'] += 1
+
+        teams_without_players = [team_id for team_id, team_data in teams.items() if len(team_data['teamMembers']) == 0]
+        if teams_without_players:
+            raise EmptyTournamentException(f'There are {len(teams_without_players)} teams without any players. First such team: {teams_without_players[0]}.')
         self.data = pd.DataFrame(teams.values())
         if release.date < tools.FIRST_NEW_RELEASE:
             self.data['heredity'] = (self.data.n_base > 3) | (self.data.n_base == 3) & \

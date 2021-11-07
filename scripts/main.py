@@ -1,6 +1,7 @@
 from postgres import Postgres
 import copy
 import datetime
+import sys
 import pandas as pd
 import numpy as np
 from django.utils import timezone
@@ -170,8 +171,8 @@ def get_tournaments_for_release(cursor, old_release: models.Release,
         try:
             tournament = Tournament(cursor, tournament_id=tournament_id, release=new_release)
             tournaments.append(tournament)
-        except EmptyTournamentException:
-            print(f'Tournament with id {tournament_id} has no results. Skipping')
+        except EmptyTournamentException as e:
+            print(f'Skipping tournament with id {tournament_id}: {e}')
     print(f'There are {len(tournaments)} tournaments with at least one result between {old_release.date} and {new_release.date}.')
     return tournaments
 
@@ -195,6 +196,8 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
                                        take_top_bonuses_from_api=(old_release_date == tools.LAST_OLD_RELEASE) # TODO: Remove
                                        )
         initial_teams.update_q(initial_players)
+        if pd.isnull(initial_teams.q):
+            sys.exit('Q is nan! We cannot continue.')
         initial_teams.calc_trb(initial_players)
 
         changed_teams = get_teams_with_new_players(old_release_date, next_release_date)

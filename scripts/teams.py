@@ -33,7 +33,7 @@ class TeamRating:
         (исключая те, которые получают в этом релизе стартовые рейтинги) и имеющих не менее шести
         игроков в базовом составе.
         """
-        top_h = self.data.iloc[:100]
+        top_h = self.data.sort_values(by=['rating'], ascending=False).iloc[:100]
         top_h_ids = set(top_h.index)
         rb_raws = players_release.data[players_release.data['base_team_id'].isin(top_h_ids)].groupby(
             'base_team_id')['rating'].apply(
