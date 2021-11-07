@@ -2,6 +2,7 @@ from postgres import Postgres
 import copy
 import datetime
 import pandas as pd
+import numpy as np
 from django.utils import timezone
 from typing import Iterable, List, Optional, Tuple
 
@@ -37,6 +38,7 @@ def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_p
     existing_player_ids = set(initial_players.data.index)
     new_player_ids = set()
     for tournament in tournaments:
+        print(f'Tournament {tournament.id}...')
         initial_teams.add_new_teams(tournament, initial_players)
         tournament.add_ratings(initial_teams, initial_players)
         tournament.calc_bonuses(initial_teams)
@@ -57,6 +59,8 @@ def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_p
     final_players.reduce_rating()
     for tournament in tournaments:
         final_teams, final_players = tournament.apply_bonuses(final_teams, final_players)
+    # Team rating cannot be negative.
+    final_teams.data['rating'] = np.maximum(final_teams.data['rating'], 0)
     final_players.recalc_rating()
     return final_teams, final_players
 
