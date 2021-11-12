@@ -166,10 +166,10 @@ class Tournament_result(models.Model):
     rating = models.IntegerField(verbose_name='Набранный балл B')
     d1 = models.IntegerField(verbose_name='D1')
     d2 = models.IntegerField(verbose_name='D2')
-    r  = models.IntegerField(verbose_name='R: Релизный рейтинг команды из последнего релиза', null=True)
-    rt = models.IntegerField(verbose_name='RT: Технический рейтинг команды по фактическому составу', null=True)
-    rb = models.IntegerField(verbose_name='RB: Технический рейтинг команды по базовому составу', null=True)
-    rg = models.IntegerField(verbose_name='RG: Используемый рейтинг команды', null=True)
+    r  = models.IntegerField(verbose_name='R: Релизный рейтинг команды из последнего релиза')
+    rt = models.IntegerField(verbose_name='RT: Технический рейтинг команды по фактическому составу')
+    rb = models.IntegerField(verbose_name='RB: Технический рейтинг команды по базовому составу')
+    rg = models.IntegerField(verbose_name='RG: Используемый рейтинг команды')
     rating_change = models.IntegerField(verbose_name='Результат команды на турнире D')
     is_in_maii_rating = models.BooleanField(verbose_name='Учитывается ли в рейтинге МАИИ')
     class Meta:
@@ -207,3 +207,12 @@ class Player_rating_by_tournament(models.Model):
         self.weeks_since_tournament += 1
         self.raw_cur_score = self.initial_score * (constants.J ** self.weeks_since_tournament)
         self.cur_score = round(self.raw_cur_score)
+
+# Stores all tournaments that were counted in given release.
+class Tournament_in_release(models.Model):
+    release = models.ForeignKey(Release, verbose_name='Релиз', on_delete=models.CASCADE)
+    tournament = models.ForeignKey(Tournament, verbose_name='Турнир', on_delete=models.PROTECT)
+    # tournament_id = models.IntegerField(verbose_name='Турнир')
+    class Meta:
+        db_table = 'tournament_in_release'
+        unique_together = (('release', 'tournament', ), )

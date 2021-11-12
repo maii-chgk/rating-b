@@ -12,9 +12,9 @@ from dj import private_settings
 
 from . import api_util
 from . import tools
+from . import tournament as trnmt
 from .teams import TeamRating
 from .players import PlayerRating
-from .tournament import EmptyTournamentException, Tournament
 from .db_tools import get_teams_with_new_players, fast_insert, get_base_teams_for_players
 
 SCHEMA = 'b'
@@ -28,13 +28,13 @@ POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
 
 # Reads the teams rating for given release_id.
 def get_team_rating(cursor, schema: str, release_id: int) -> TeamRating:
-    teams_list = list(models.Team_rating.objects.filter(release_id=release_id).values('team_id', 'rating', 'trb'))
+    teams_list = list(models.Team_rating.objects.filter(release_id=release_id).values('team_id', 'rating', 'trb').order_by('-rating'))
     return TeamRating(teams_list=teams_list)
 
 
 # Calculates new teams and players rating based on old rating and provided set of tournaments.
 def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_players: PlayerRating,
-                 tournaments: Iterable[Tournament],
+                 tournaments: Iterable[trnmt.Tournament],
                  new_release: models.Release) -> Tuple[TeamRating, PlayerRating]:
     existing_player_ids = set(initial_players.data.index)
     new_player_ids = set()
@@ -74,11 +74,12 @@ def get_api_release_date(release_id: int) -> datetime.date:
 
 # Saves provided teams and players ratings to our DB for provided release date
 def dump_release(cursor, schema: str, release: models.Release, team_rating: TeamRating,
-                 player_rating: PlayerRating):
+                 player_rating: PlayerRating, tournaments: List[trnmt.Tournament]):
     # TODO: We don't need to dump players with rating 0
     release.player_rating_set.all().delete()
     release.team_rating_set.all().delete()
     release.player_rating_by_tournament_set.all().delete()
+    release.tournament_in_release_set.all().delete()
 
     print(f'Dumping ratings for {len(player_rating.data.index)} players and {len(team_rating.data.index)} teams...')
     player_rows = [
@@ -113,9 +114,12 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
                 'release_id, player_id, tournament_result_id, tournament_id, initial_score, weeks_since_tournament, cur_score',
                 bonuses_rows, schema)
 
+    tournament_in_release_rows = [f'({release.id}, {tournament.id})' for tournament in tournaments]
+    fast_insert(cursor, 'tournament_in_release', 'release_id, tournament_id', tournament_in_release_rows, schema)
+
 
 # Saves tournament bonuses that were already calculated.
-def dump_team_bonuses_for_tournament(cursor, schema: str, trnmt: Tournament):
+def dump_team_bonuses_for_tournament(cursor, schema: str, trnmt: trnmt.Tournament):
     models.Tournament_result.objects.filter(tournament_id=trnmt.id).delete()
     rows = []
     for _, team in trnmt.data.iterrows():
@@ -161,7 +165,7 @@ def import_release(api_release_id: int, schema: str=SCHEMA):
 
 # Loads tournaments from our DB that finish between given releases.
 def get_tournaments_for_release(cursor, old_release: models.Release,
-                                new_release: models.Release) -> List[Tournament]:
+                                new_release: models.Release) -> List[trnmt.Tournament]:
     tournaments = []
     for tournament_id in models.Tournament.objects.filter(
             end_datetime__date__gt=old_release.date,
@@ -169,9 +173,9 @@ def get_tournaments_for_release(cursor, old_release: models.Release,
             maii_rating=True).values_list('pk', flat=True):
         # We need only tournaments with available results of at lease some teams.
         try:
-            tournament = Tournament(cursor, tournament_id=tournament_id, release=new_release)
+            tournament = trnmt.Tournament(cursor, tournament_id=tournament_id, release=new_release)
             tournaments.append(tournament)
-        except EmptyTournamentException as e:
+        except trnmt.EmptyTournamentException as e:
             print(f'Skipping tournament with id {tournament_id}: {e}')
     print(f'There are {len(tournaments)} tournaments with at least one result between {old_release.date} and {new_release.date}.')
     return tournaments
@@ -209,7 +213,7 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
             cursor, initial_teams, initial_players, tournaments, new_release=next_release)
         for tournament in tournaments:
             dump_team_bonuses_for_tournament(cursor, schema, tournament)
-        dump_release(cursor, schema, next_release, new_teams, new_players)
+        dump_release(cursor, schema, next_release, new_teams, new_players, tournaments)
         next_release.updated_at = timezone.now()
         next_release.save()
 
