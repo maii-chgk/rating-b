@@ -84,7 +84,8 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
     print(f'Dumping ratings for {len(player_rating.data.index)} players and {len(team_rating.data.index)} teams...')
     player_rows = [
         f'({player_id}, {release.id}, {player["rating"]}, {(player["rating"] - player["prev_rating"]) if player["prev_rating"] else "NULL"})'
-        for player_id, player in player_rating.data.iterrows()]
+        for player_id, player in player_rating.data.iterrows()
+        if (player["rating"] > 0)]
     fast_insert(cursor, 'player_rating', 'player_id, release_id, rating, rating_change',
                 player_rows, schema)
 
@@ -97,18 +98,21 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
     bonuses_rows = []
     i = 0
     for player_id, player in player_rating.data.iterrows():
+        if player["rating"] == 0:
+            continue
         i += 1
         for player_rating_by_trnmt in player['top_bonuses']:
-            bonuses_rows.append('(' + ', '.join(str(x) for x in [
-                release.id,
-                player_id,
-                player_rating_by_trnmt.tournament_result_id if player_rating_by_trnmt.tournament_result_id else 'NULL',
-                player_rating_by_trnmt.tournament_id if player_rating_by_trnmt.tournament_id else 'NULL',
-                # player_rating_by_trnmt.tournament_result.rating if player_rating_by_trnmt.tournament_result else player_rating_by_trnmt.initial_score,
-                player_rating_by_trnmt.initial_score,
-                player_rating_by_trnmt.weeks_since_tournament,
-                player_rating_by_trnmt.cur_score,
-            ]) + ')')
+            if player_rating_by_trnmt.cur_score > 0:
+                bonuses_rows.append('(' + ', '.join(str(x) for x in [
+                    release.id,
+                    player_id,
+                    player_rating_by_trnmt.tournament_result_id if player_rating_by_trnmt.tournament_result_id else 'NULL',
+                    player_rating_by_trnmt.tournament_id if player_rating_by_trnmt.tournament_id else 'NULL',
+                    # player_rating_by_trnmt.tournament_result.rating if player_rating_by_trnmt.tournament_result else player_rating_by_trnmt.initial_score,
+                    player_rating_by_trnmt.initial_score,
+                    player_rating_by_trnmt.weeks_since_tournament,
+                    player_rating_by_trnmt.cur_score,
+                ]) + ')')
     print(f'Dumping {len(bonuses_rows)} player bonuses...')
     fast_insert(cursor, 'player_rating_by_tournament',
                 'release_id, player_id, tournament_result_id, tournament_id, initial_score, weeks_since_tournament, cur_score',
