@@ -96,7 +96,7 @@ class Tournament:
     def apply_bonuses(self, team_rating, player_rating) -> Tuple[Any, Any]:
         for i, team in self.data.iterrows():
             if team['heredity']:
-                team_rating.data.loc[team['team_id']]['rating'] += team['bonus']
+                team_rating.data.at[team['team_id'], 'rating'] += team['bonus']
             for player_id in team['teamMembers']:
                 bonus = models.Player_rating_by_tournament(
                     release_id=self.release_id,

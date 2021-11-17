@@ -1,6 +1,7 @@
 from postgres import Postgres
 import copy
 import datetime
+import decimal
 import sys
 import pandas as pd
 import numpy as np
@@ -25,10 +26,11 @@ POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
     private_settings.DJANGO_POSTRGES_DB_PORT,
     private_settings.DJANGO_POSTRGES_DB_NAME,
 )
+decimal.getcontext().prec = 1
 
 # Reads the teams rating for given release_id.
 def get_team_rating(cursor, schema: str, release_id: int) -> TeamRating:
-    teams_list = list(models.Team_rating.objects.filter(release_id=release_id).values('team_id', 'rating', 'trb').order_by('-rating'))
+    teams_list = list(models.Team_rating.objects.filter(release_id=release_id).values('team_id', 'rating', 'trb', 'place').order_by('-rating'))
     return TeamRating(teams_list=teams_list)
 
 
@@ -47,11 +49,12 @@ def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_p
 
     final_teams = copy.deepcopy(initial_teams)
     final_players = copy.deepcopy(initial_players)
-    new_players = pd.DataFrame(
-        [{'player_id': player_id, 'rating': 0, 'top_bonuses': []} for player_id in
-         new_player_ids]).set_index("player_id").join(
-        get_base_teams_for_players(cursor, new_release.date), how='left')
-    final_players.data = final_players.data.append(new_players)
+    if new_player_ids:
+        new_players = pd.DataFrame(
+            [{'player_id': player_id, 'rating': 0, 'top_bonuses': []} for player_id in
+             new_player_ids]).set_index("player_id").join(
+            get_base_teams_for_players(cursor, new_release.date), how='left')
+        final_players.data = final_players.data.append(new_players)
 
     # We need these columns to dump the difference between new and old rating.
     final_teams.data['prev_rating'] = final_teams.data['rating']
@@ -90,9 +93,10 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
                 player_rows, schema)
 
     team_rows = [
-        f'({team_id}, {release.id}, {team["rating"]}, {team["trb"]}, {(team["rating"] - team["prev_rating"]) if team["prev_rating"] else "NULL"})'
+        f'({team_id}, {release.id}, {team["rating"]}, {team["trb"]}, {(team["rating"] - team["prev_rating"]) if team["prev_rating"] else "NULL"}, '
+        + f'{team["place"] if team["place"] else "NULL"}, {(decimal.Decimal(team["place"]) - team["prev_place"]) if team["prev_place"] else "NULL"})'
         for team_id, team in team_rating.data.iterrows()]
-    fast_insert(cursor, 'team_rating', 'team_id, release_id, rating, trb, rating_change', team_rows,
+    fast_insert(cursor, 'team_rating', 'team_id, release_id, rating, trb, rating_change, place, place_change', team_rows,
                 schema)
 
     bonuses_rows = []
@@ -215,6 +219,7 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
         tournaments = get_tournaments_for_release(cursor, old_release, next_release)
         new_teams, new_players = make_step_for_teams_and_players(
             cursor, initial_teams, initial_players, tournaments, new_release=next_release)
+        new_teams.data['place'] = tools.calc_places(new_teams.data['rating'].values)
         for tournament in tournaments:
             dump_team_bonuses_for_tournament(cursor, schema, tournament)
         dump_release(cursor, schema, next_release, new_teams, new_players, tournaments)

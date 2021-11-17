@@ -19,11 +19,12 @@ class TeamRating:
                 raw_rating = get_teams_release(api_release_id)
             else:
                 raw_rating = pd.read_csv(filename)
-            raw_rating = raw_rating[['Ид', 'Рейтинг', 'ТРК по БС']]
-            raw_rating.columns = ['team_id', 'rating', 'trb']
+            raw_rating = raw_rating[['Ид', 'Место', 'Рейтинг', 'ТРК по БС']]
+            raw_rating.columns = ['team_id', 'place', 'rating', 'trb']
             self.data = raw_rating
         self.data.set_index('team_id', inplace=True)
         self.data['prev_rating'] = 0
+        self.data['prev_place'] = self.data['place']
         self.c = self.calc_c()
 
     def update_q(self, players_release):
@@ -73,6 +74,8 @@ class TeamRating:
         new_teams['trb'] = new_teams.baseTeamMembers.map(lambda x: player_rating.calc_rt(x, self.q))
         new_teams['trb'].fillna(0, inplace=True)
         new_teams['rating'] = new_teams['trb'] * 0.8
+        new_teams['prev_rating'] = None
+        new_teams['prev_place'] = None
         self.data = self.data.append(new_teams.drop("baseTeamMembers", axis=1))
 
     def calc_trb(self, player_rating: PlayerRating):
