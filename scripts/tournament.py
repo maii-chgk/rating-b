@@ -12,14 +12,15 @@ class EmptyTournamentException(Exception):
 
 
 class Tournament:
-    def __init__(self, cursor, tournament_id: int, release: models.Release):
+    def __init__(self, cursor, tournament_id: int, release: models.Release, verbose: bool=False):
         tournament = models.Tournament.objects.get(pk=tournament_id)
         self.type = tournament.typeoft_id
         self.coeff = self.tournament_type_to_coeff(self.type)
         self.id = tournament_id
         self.release_id = release.id
         teams = {}
-        print(f'Loading tournament {tournament_id}...')
+        if verbose:
+            print(f'Loading tournament {tournament_id}...')
         for team_score in tournament.team_score_set.exclude(position__in=(0, 9999)).select_related('team'):
             teams[team_score.team_id] = {
                 'team_id': team_score.team_id,
@@ -36,7 +37,7 @@ class Tournament:
             raise EmptyTournamentException(f"There are no teams.")
         for team_player in tournament.roster_set.all():
             if team_player.team_id not in teams:
-                print(f'Player {team_player.player_id} is in roster of team {team_player.team_id} for tournament {tournament_id} but the team did not play there!')
+                print(f'Tournament {tournament_id}, team {team_player.team_id}: player {team_player.player_id} is in roster but the team did not play there!')
                 continue
             teams[team_player.team_id]['teamMembers'].append(team_player.player_id)
             if team_player.flag == 'Б':

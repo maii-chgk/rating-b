@@ -27,6 +27,7 @@ POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
     private_settings.DJANGO_POSTRGES_DB_NAME,
 )
 decimal.getcontext().prec = 1
+verbose = False
 
 # Reads the teams rating for given release_id.
 def get_team_rating(cursor, schema: str, release_id: int) -> TeamRating:
@@ -41,7 +42,8 @@ def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_p
     existing_player_ids = set(initial_players.data.index)
     new_player_ids = set()
     for tournament in tournaments:
-        print(f'Tournament {tournament.id}...')
+        if verbose:
+            print(f'Tournament {tournament.id}...')
         initial_teams.add_new_teams(tournament, initial_players)
         tournament.add_ratings(initial_teams, initial_players)
         tournament.calc_bonuses(initial_teams)
@@ -84,7 +86,8 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
     release.player_rating_by_tournament_set.all().delete()
     release.tournament_in_release_set.all().delete()
 
-    print(f'Dumping ratings for {len(player_rating.data.index)} players and {len(team_rating.data.index)} teams...')
+    if verbose:
+        print(f'Dumping ratings for {len(player_rating.data.index)} players and {len(team_rating.data.index)} teams...')
     player_rows = [
         f'({player_id}, {release.id}, {player["rating"]}, {(player["rating"] - player["prev_rating"]) if player["prev_rating"] else "NULL"})'
         for player_id, player in player_rating.data.iterrows()
@@ -117,7 +120,8 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
                     player_rating_by_trnmt.weeks_since_tournament,
                     player_rating_by_trnmt.cur_score,
                 ]) + ')')
-    print(f'Dumping {len(bonuses_rows)} player bonuses...')
+    if verbose:
+        print(f'Dumping {len(bonuses_rows)} player bonuses...')
     fast_insert(cursor, 'player_rating_by_tournament',
                 'release_id, player_id, tournament_result_id, tournament_id, initial_score, weeks_since_tournament, cur_score',
                 bonuses_rows, schema)
@@ -167,8 +171,9 @@ def import_release(api_release_id: int, schema: str=SCHEMA):
     db = Postgres(url=POSTGRES_URL)
     with db.get_cursor() as cursor:
         dump_release(cursor, schema, release, team_rating, player_rating)
-    print(f'Loaded {len(team_rating.data)} teams and {len(player_rating.data)} players from '
-          f'release {release_date} (ID in API {api_release_id}).')
+    if verbose:
+        print(f'Loaded {len(team_rating.data)} teams and {len(player_rating.data)} players from '
+              f'release {release_date} (ID in API {api_release_id}).')
 
 
 # Loads tournaments from our DB that finish between given releases.
@@ -181,11 +186,12 @@ def get_tournaments_for_release(cursor, old_release: models.Release,
             maii_rating=True).values_list('pk', flat=True):
         # We need only tournaments with available results of at lease some teams.
         try:
-            tournament = trnmt.Tournament(cursor, tournament_id=tournament_id, release=new_release)
+            tournament = trnmt.Tournament(cursor, tournament_id=tournament_id, release=new_release, verbose=verbose)
             tournaments.append(tournament)
         except trnmt.EmptyTournamentException as e:
             print(f'Skipping tournament with id {tournament_id}: {e}')
-    print(f'There are {len(tournaments)} tournaments with at least one result between {old_release.date} and {new_release.date}.')
+    if verbose:
+        print(f'There are {len(tournaments)} tournaments with at least one result between {old_release.date} and {new_release.date}.')
     return tournaments
 
 
@@ -227,7 +233,9 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
         next_release.save()
 
 # Calculates all releases starting from FIRST_NEW_RELEASE until current date
-def calc_all_releases():
+def calc_all_releases(flag_verbose=False):
+    global verbose
+    verbose = flag_verbose
     next_release_date = tools.FIRST_NEW_RELEASE
     today = datetime.date.today()
     time_started = datetime.datetime.now()
