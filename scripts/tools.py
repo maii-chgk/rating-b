@@ -4,6 +4,7 @@ import datetime
 import decimal
 import numpy.typing as npt
 from typing import Optional
+from .constants import (TECHNICAL_RATING_DISTRIBUTION, TECHNICAL_RATING_RELEVANT_PLAYERS)
 
 
 def rolling_window(a: npt.ArrayLike, window: int) -> npt.ArrayLike:
@@ -16,7 +17,7 @@ def rolling_window(a: npt.ArrayLike, window: int) -> npt.ArrayLike:
 def calc_tech_rating(players_ratings: npt.ArrayLike, q: Optional[float]=None):
     pr_sorted = np.sort(players_ratings)[::-1]
     coeffs = np.zeros(pr_sorted.size)
-    coeffs[:6] = (np.arange(6, 0, -1) / 6)[:coeffs.size]
+    coeffs[:TECHNICAL_RATING_RELEVANT_PLAYERS] = TECHNICAL_RATING_DISTRIBUTION[:coeffs.size]
     tech_rating = np.round(pr_sorted.dot(coeffs))
     if q is not None:
         tech_rating *= q

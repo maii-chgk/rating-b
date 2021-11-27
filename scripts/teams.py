@@ -2,8 +2,8 @@ from .api_util import get_teams_release
 from .tools import calc_tech_rating
 from .tournament import Tournament
 from .players import PlayerRating
-from constants import (TOP_TEAMS_FOR_Q_CALCULATION, PLAYERS_IN_TEAM_FOR_Q_CALCULATION, MAX_BONUS,
-                       TEAMS_COUNT_FOR_BP, NEW_TEAMS_LOWERING_COEFFICIENT)
+from .constants import (TOP_TEAMS_FOR_Q_CALCULATION, PLAYERS_IN_TEAM_FOR_Q_CALCULATION, MAX_BONUS,
+                        TEAMS_COUNT_FOR_BP, NEW_TEAMS_LOWERING_COEFFICIENT)
 import pandas as pd
 import numpy as np
 from typing import List, Tuple
