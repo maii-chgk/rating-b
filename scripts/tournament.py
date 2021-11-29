@@ -16,16 +16,18 @@ class EmptyTournamentException(Exception):
 
 
 class Tournament:
-    def __init__(self, cursor, tournament_id: int, release: models.Release, verbose: bool=False):
-        tournament = models.Tournament.objects.get(pk=tournament_id)
-        self.type = tournament.typeoft_id
-        self.coeff = self.tournament_type_to_coeff(self.type)
-        self.id = tournament_id
+    def __init__(self, cursor, trnmt_from_db: models.Tournament, release: models.Release, verbose: bool=False):
+        self.coeff = self.tournament_type_to_coeff(trnmt_from_db.typeoft_id)
+        self.id = trnmt_from_db.id
         self.release_id = release.id
+        self.is_in_maii_rating = trnmt_from_db.maii_rating
         teams = {}
         if verbose:
-            print(f'Loading tournament {tournament_id}...')
-        for team_score in tournament.team_score_set.exclude(position__in=(0, 9999)).select_related('team'):
+            print(f'Loading tournament {self.id}...')
+        for team_score in trnmt_from_db.team_score_set.select_related('team'):
+            if team_score.position in (0, 9999):
+                print(f'Tournament {self.id}: team {team_score.id} ({team_score.team.title}) has incorrect place {team_score.position}! Skipping this team.')
+                continue
             teams[team_score.team_id] = {
                 'team_id': team_score.team_id,
                 'name': team_score.team.title,
@@ -39,9 +41,9 @@ class Tournament:
             }
         if len(teams) == 0:
             raise EmptyTournamentException(f"There are no teams.")
-        for team_player in tournament.roster_set.all():
+        for team_player in trnmt_from_db.roster_set.all():
             if team_player.team_id not in teams:
-                print(f'Tournament {tournament_id}, team {team_player.team_id}: player {team_player.player_id} is in roster but the team did not play there!')
+                print(f'Tournament {self.id}, team {team_player.team_id}: player {team_player.player_id} is in roster but the team did not play there!')
                 continue
             teams[team_player.team_id]['teamMembers'].append(team_player.player_id)
             if team_player.flag == 'Б':
@@ -132,9 +134,6 @@ class Tournament:
             return REGULAR_TOURNAMENT_COEFFICIENT
         if ttype == models.TRNMT_TYPE_STRICT_SYNCHRONOUS:
             return STRICT_SYNCHRONOUS_TOURNAMENT_COEFFICIENT
-        if ttype == models.TRNMT_TYPE_SYNCHRONOUS:
+        if ttype in models.TRNMT_TYPES:
             return SYNCHRONOUS_TOURNAMENT_COEFFICIENT
-        else:
-            raise Exception(f"tournament type {ttype} is not supported!")
-
-
+        raise Exception(f"tournament type {ttype} is not supported!")

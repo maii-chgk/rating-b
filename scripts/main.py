@@ -64,7 +64,8 @@ def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_p
 
     final_players.reduce_rating()
     for tournament in tournaments:
-        final_teams, final_players = tournament.apply_bonuses(final_teams, final_players)
+        if tournament.is_in_maii_rating:
+            final_teams, final_players = tournament.apply_bonuses(final_teams, final_players)
     # Team rating cannot be negative.
     final_teams.data['rating'] = np.maximum(final_teams.data['rating'], 0)
     final_players.recalc_rating()
@@ -80,7 +81,6 @@ def get_api_release_date(release_id: int) -> datetime.date:
 # Saves provided teams and players ratings to our DB for provided release date
 def dump_release(cursor, schema: str, release: models.Release, team_rating: TeamRating,
                  player_rating: PlayerRating, tournaments: List[trnmt.Tournament]):
-    # TODO: We don't need to dump players with rating 0
     release.player_rating_set.all().delete()
     release.team_rating_set.all().delete()
     release.player_rating_by_tournament_set.all().delete()
@@ -126,7 +126,7 @@ def dump_release(cursor, schema: str, release: models.Release, team_rating: Team
                 'release_id, player_id, tournament_result_id, tournament_id, initial_score, weeks_since_tournament, cur_score',
                 bonuses_rows, schema)
 
-    tournament_in_release_rows = [f'({release.id}, {tournament.id})' for tournament in tournaments]
+    tournament_in_release_rows = [f'({release.id}, {tournament.id})' for tournament in tournaments if tournament.is_in_maii_rating]
     fast_insert(cursor, 'tournament_in_release', 'release_id, tournament_id', tournament_in_release_rows, schema)
 
 
@@ -180,18 +180,23 @@ def import_release(api_release_id: int, schema: str=SCHEMA):
 def get_tournaments_for_release(cursor, old_release: models.Release,
                                 new_release: models.Release) -> List[trnmt.Tournament]:
     tournaments = []
-    for tournament_id in models.Tournament.objects.filter(
+    n_counted_in_maii_rating = 0
+    for trnmt_from_db in models.Tournament.objects.filter(
             end_datetime__date__gt=old_release.date,
-            end_datetime__date__lte=new_release.date,
-            maii_rating=True).values_list('pk', flat=True):
+            end_datetime__date__lte=new_release.date).prefetch_related('roster_set', 'team_score_set__team').order_by('pk'):
         # We need only tournaments with available results of at lease some teams.
+        if (new_release.date <= tools.FIRST_NEW_RELEASE) and (not trnmt_from_db.maii_rating):
+            continue
         try:
-            tournament = trnmt.Tournament(cursor, tournament_id=tournament_id, release=new_release, verbose=verbose)
+            tournament = trnmt.Tournament(cursor, trnmt_from_db=trnmt_from_db, release=new_release, verbose=verbose)
             tournaments.append(tournament)
+            if trnmt_from_db.maii_rating:
+                n_counted_in_maii_rating += 1
         except trnmt.EmptyTournamentException as e:
-            print(f'Skipping tournament with id {tournament_id}: {e}')
+            if trnmt_from_db.maii_rating:
+                print(f'Skipping tournament with id {trnmt_from_db.id}: {e}')
     if verbose:
-        print(f'There are {len(tournaments)} tournaments with at least one result between {old_release.date} and {new_release.date}.')
+        print(f'There are {len(tournaments)} tournaments ({n_counted_in_maii_rating} in MAII rating) with at least one result between {old_release.date} and {new_release.date}.')
     return tournaments
 
 
