@@ -3,7 +3,7 @@ from typing import List, Tuple
 
 from .tools import calc_tech_rating, get_age_in_weeks
 from .api_util import get_players_release
-from scripts import constants
+from .constants import N_BEST_TOURNAMENTS_FOR_PLAYER_RATING
 from scripts import db_tools
 from b import models
 
@@ -88,7 +88,7 @@ class PlayerRating:
     # Removes all bonuses except top 7 and updates rating for each player
     def recalc_rating(self):
         def leave_top_N(v: List[models.Player_rating_by_tournament]) -> List[models.Player_rating_by_tournament]:
-            return sorted(v, key=lambda x: -x.raw_cur_score)[:constants.N_BEST_TOURNAMENTS_FOR_PLAYER_RATING]
+            return sorted(v, key=lambda x: -x.raw_cur_score)[:N_BEST_TOURNAMENTS_FOR_PLAYER_RATING]
         self.data['top_bonuses'] = self.data['top_bonuses'].map(leave_top_N)
 
         def sum_ratings_now(v: List[models.Player_rating_by_tournament]) -> int:

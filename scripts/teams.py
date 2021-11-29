@@ -2,6 +2,8 @@ from .api_util import get_teams_release
 from .tools import calc_tech_rating
 from .tournament import Tournament
 from .players import PlayerRating
+from .constants import (TOP_TEAMS_FOR_Q_CALCULATION, PLAYERS_IN_TEAM_FOR_Q_CALCULATION, MAX_BONUS,
+                        TEAMS_COUNT_FOR_BP, NEW_TEAMS_LOWERING_COEFFICIENT)
 import pandas as pd
 import numpy as np
 from typing import List, Tuple
@@ -34,18 +36,19 @@ class TeamRating:
         (исключая те, которые получают в этом релизе стартовые рейтинги) и имеющих не менее шести
         игроков в базовом составе.
         """
-        top_h = self.data.iloc[:100]
+        top_h = self.data.iloc[:TOP_TEAMS_FOR_Q_CALCULATION]
         top_h_ids = set(top_h.index)
         rb_raws = players_release.data[players_release.data['base_team_id'].isin(top_h_ids)].groupby(
             'base_team_id')['rating'].apply(
-            lambda x: calc_tech_rating(x.values) if len(x.values) >= 6 else None).dropna()
+            lambda x: calc_tech_rating(x.values) if len(
+                x.values) >= PLAYERS_IN_TEAM_FOR_Q_CALCULATION else None).dropna()
         top_h = top_h.join(rb_raws, rsuffix='_raw', how='inner')
         self.q = (top_h['rating'] / top_h['rating_raw']).mean()
 
     def calc_c(self):
         ratings = np.copy(self.data.rating.values)
         ratings[::-1].sort()
-        return 2300 / ratings[:15].dot(2. ** np.arange(0, -15, -1))
+        return MAX_BONUS / ratings[:TEAMS_COUNT_FOR_BP].dot(2. ** np.arange(0, -TEAMS_COUNT_FOR_BP, -1))
 
     def get_team_rating(self, team_id):
         return self.data.rating.get(team_id, 0)
@@ -59,7 +62,8 @@ class TeamRating:
         existing_teams = [t for t in changed_teams if t in set(self.data.index)]
         self.data['old_release_rating'] = self.data['rating']
         self.data.loc[existing_teams, 'rating'] = np.maximum(
-            self.data.loc[existing_teams, 'rating'], self.data.loc[existing_teams, "trb"] * 0.8)
+            self.data.loc[existing_teams, 'rating'],
+            self.data.loc[existing_teams, "trb"] * NEW_TEAMS_LOWERING_COEFFICIENT)
         res = []
         for team_id, team in self.data[self.data['old_release_rating'] != self.data['rating']].iterrows():
             res.append((team_id, team['rating']))
@@ -73,7 +77,7 @@ class TeamRating:
             return
         new_teams['trb'] = new_teams.baseTeamMembers.map(lambda x: player_rating.calc_rt(x, self.q))
         new_teams['trb'].fillna(0, inplace=True)
-        new_teams['rating'] = new_teams['trb'] * 0.8
+        new_teams['rating'] = new_teams['trb'] * NEW_TEAMS_LOWERING_COEFFICIENT
         new_teams['prev_rating'] = None
         new_teams['prev_place'] = None
         self.data = self.data.append(new_teams.drop("baseTeamMembers", axis=1))
