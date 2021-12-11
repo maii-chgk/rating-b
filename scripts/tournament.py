@@ -26,7 +26,8 @@ class Tournament:
             print(f'Loading tournament {self.id}...')
         for team_score in trnmt_from_db.team_score_set.select_related('team'):
             if team_score.position in (0, 9999):
-                print(f'Tournament {self.id}: team {team_score.id} ({team_score.team.title}) has incorrect place {team_score.position}! Skipping this team.')
+                if self.is_in_maii_rating:
+                    print(f'Tournament {self.id}: team {team_score.id} ({team_score.team.title}) has incorrect place {team_score.position}! Skipping this team.')
                 continue
             teams[team_score.team_id] = {
                 'team_id': team_score.team_id,

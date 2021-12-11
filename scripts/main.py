@@ -43,7 +43,7 @@ def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_p
     new_player_ids = set()
     for tournament in tournaments:
         if verbose:
-            print(f'Tournament {tournament.id}...')
+            print(f'Tournament {tournament.id}...' + ('' if tournament.is_in_maii_rating else ' (not in MAII rating)'))
         initial_teams.add_new_teams(tournament, initial_players)
         tournament.add_ratings(initial_teams, initial_players)
         tournament.calc_bonuses(initial_teams)
@@ -181,12 +181,13 @@ def get_tournaments_for_release(cursor, old_release: models.Release,
                                 new_release: models.Release) -> List[trnmt.Tournament]:
     tournaments = []
     n_counted_in_maii_rating = 0
-    for trnmt_from_db in models.Tournament.objects.filter(
-            end_datetime__date__gt=old_release.date,
-            end_datetime__date__lte=new_release.date).prefetch_related('roster_set', 'team_score_set__team').order_by('pk'):
+    tournaments_qs = models.Tournament.objects.filter(
+        end_datetime__date__gt=old_release.date,
+        end_datetime__date__lte=new_release.date).prefetch_related('roster_set', 'team_score_set__team')
+    if new_release.date <= tools.FIRST_NEW_RELEASE:
+        tournaments_qs = tournaments_qs.filter(maii_rating=True)
+    for trnmt_from_db in tournaments_qs.order_by('pk'):
         # We need only tournaments with available results of at lease some teams.
-        if (new_release.date <= tools.FIRST_NEW_RELEASE) and (not trnmt_from_db.maii_rating):
-            continue
         try:
             tournament = trnmt.Tournament(cursor, trnmt_from_db=trnmt_from_db, release=new_release, verbose=verbose)
             tournaments.append(tournament)
@@ -202,7 +203,10 @@ def get_tournaments_for_release(cursor, old_release: models.Release,
 
 # Reads teams and players for provided dates; finds tournaments for next release; calculates
 # new ratings and writes them to our DB.
-def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optional[Postgres] = None):
+def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optional[Postgres] = None, flag_verbose=None):
+    if flag_verbose is not None:
+        global verbose
+        verbose = flag_verbose
     if db is None:
         db = Postgres(url=POSTGRES_URL)
     with db.get_cursor() as cursor:
@@ -238,16 +242,17 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
         next_release.save()
 
 # Calculates all releases starting from FIRST_NEW_RELEASE until current date
-def calc_all_releases(flag_verbose=False):
-    global verbose
-    verbose = flag_verbose
-    next_release_date = tools.FIRST_NEW_RELEASE
+def calc_all_releases(first_to_calc: datetime.date, flag_verbose=None):
+    if flag_verbose is not None:
+        global verbose
+        verbose = flag_verbose
+    next_release_date = first_to_calc
     today = datetime.date.today()
     time_started = datetime.datetime.now()
     db = Postgres(url=POSTGRES_URL)
     n_releases_calculated = 0
     while next_release_date <= today:
-        calc_release(next_release_date=next_release_date, db=db)
+        calc_release(next_release_date=next_release_date, db=db, flag_verbose=flag_verbose)
         n_releases_calculated += 1
         next_release_date += datetime.timedelta(days=7)
     time_spent = datetime.datetime.now() - time_started
