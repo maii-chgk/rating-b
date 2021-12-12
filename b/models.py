@@ -112,8 +112,8 @@ class Roster(models.Model): # Состав команды на данном ту
         unique_together = (('tournament', 'team', 'player', ), )
 
 class Season(models.Model):
-    start = models.DateTimeField(verbose_name='Начало сезона')
-    end = models.DateTimeField(verbose_name='Конец сезона')
+    start = models.DateField(verbose_name='Начало сезона')
+    end = models.DateField(verbose_name='Конец сезона')
     class Meta:
         db_table = 'rating_season'
 

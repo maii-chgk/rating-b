@@ -57,7 +57,7 @@ class PlayerRating:
                 players_dict[player_bonus.player_id]['top_bonuses'].append(player_bonus)
         # adding base_team_ids
         self.data = pd.DataFrame(players_dict.values()).set_index("player_id").join(
-            db_tools.get_base_teams_for_players(cursor, release_for_squads.date), how='left')
+            db_tools.get_base_teams_for_players(release_for_squads.date), how='left')
 
     def calc_rt(self, player_ids, q=None):
         """

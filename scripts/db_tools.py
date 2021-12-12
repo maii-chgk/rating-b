@@ -21,12 +21,12 @@ def fast_insert(cursor, table: str, columns: str, rows: List[str], schema: str =
         cursor.execute(f'INSERT INTO {schema}.{table} ({columns}) VALUES ' + ', '.join(rows[i:i + BATCH_SIZE]) + ';')
 
 
-def get_season(cursor, release_date: datetime.date) -> models.Season:
-    return models.Season.objects.get(start__date__lte=release_date, end__date__gte=release_date)
+def get_season(release_date: datetime.date) -> models.Season:
+    return models.Season.objects.get(start__lte=release_date, end__gte=release_date)
 
 
-def get_base_teams_for_players(cursor, release_date: datetime.date) -> pd.Series:
-    season = get_season(cursor, release_date)
+def get_base_teams_for_players(release_date: datetime.date) -> pd.Series:
+    season = get_season(release_date)
     base_teams = season.season_roster_set.filter(
         Q(start_date=None) | Q(start_date__lte=release_date),
         Q(end_date=None) | Q(end_date__lte=release_date)
