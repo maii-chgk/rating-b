@@ -26,11 +26,11 @@ except AttributeError as e:
 
 SCHEMA = 'b'
 POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
-    private_settings.DJANGO_POSTRGES_DB_USER,
-    private_settings.DJANGO_POSTRGES_DB_PASSWORD,
-    private_settings.DJANGO_POSTRGES_DB_HOST,
-    private_settings.DJANGO_POSTRGES_DB_PORT,
-    private_settings.DJANGO_POSTRGES_DB_NAME,
+    private_settings.DJANGO_POSTGRES_DB_USER,
+    private_settings.DJANGO_POSTGRES_DB_PASSWORD,
+    private_settings.DJANGO_POSTGRES_DB_HOST,
+    private_settings.DJANGO_POSTGRES_DB_PORT,
+    private_settings.DJANGO_POSTGRES_DB_NAME,
 )
 decimal.getcontext().prec = 1
 verbose = False

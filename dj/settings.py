@@ -81,11 +81,11 @@ DATABASES = {
         'OPTIONS': {
                 'options': '-c search_path=b,public'
         },
-        'NAME':     private_settings.DJANGO_POSTRGES_DB_NAME,
-        'USER':     private_settings.DJANGO_POSTRGES_DB_USER,
-        'PASSWORD': private_settings.DJANGO_POSTRGES_DB_PASSWORD,
-        'HOST':     private_settings.DJANGO_POSTRGES_DB_HOST,
-        'PORT':     private_settings.DJANGO_POSTRGES_DB_PORT,
+        'NAME':     private_settings.DJANGO_POSTGRES_DB_NAME,
+        'USER':     private_settings.DJANGO_POSTGRES_DB_USER,
+        'PASSWORD': private_settings.DJANGO_POSTGRES_DB_PASSWORD,
+        'HOST':     private_settings.DJANGO_POSTGRES_DB_HOST,
+        'PORT':     private_settings.DJANGO_POSTGRES_DB_PORT,
     },
 }
 
