@@ -6,7 +6,7 @@ from b import models
 import pandas as pd
 
 
-def fast_insert(cursor, table: str, columns: str, rows: List[str], schema: str = 'b'):
+def fast_insert(cursor, table: str, columns: str, rows: List[str], schema: str):
     """
     Insert provided list of rows to provided table, 100 items for query
     :param cursor:

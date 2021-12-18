@@ -10,7 +10,7 @@ from b import models
 
 class PlayerRating:
     def __init__(self, release=None, release_for_squads=None, file_path=None,
-                 cursor=None, schema='b', api_release_id=None, take_top_bonuses_from_api=False):
+                 cursor=None, api_release_id=None, take_top_bonuses_from_api=False):
         self.data = pd.DataFrame()
         if api_release_id:
             print(f'Creating PlayerRating by old API from release_id {api_release_id}')

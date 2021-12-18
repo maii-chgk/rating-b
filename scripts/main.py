@@ -238,7 +238,6 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
         initial_players = PlayerRating(release=old_release,
                                        release_for_squads=next_release,
                                        cursor=cursor,
-                                       schema=schema,
                                        take_top_bonuses_from_api=(old_release_date == tools.LAST_OLD_RELEASE) # TODO: Remove
                                        )
         initial_teams.update_q(initial_players)
