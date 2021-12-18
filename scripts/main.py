@@ -24,7 +24,7 @@ try:
 except AttributeError as e:
     print("Local run, not enabling Honeybadger reporting")
 
-SCHEMA = 'b'
+SCHEMA = 'fullminus'
 POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
     private_settings.DJANGO_POSTGRES_DB_USER,
     private_settings.DJANGO_POSTGRES_DB_PASSWORD,
