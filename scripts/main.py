@@ -33,7 +33,7 @@ POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
     private_settings.DJANGO_POSTGRES_DB_NAME,
 )
 decimal.getcontext().prec = 1
-verbose = False
+verbose = True
 
 # Reads the teams rating for given release_id.
 def get_team_rating(cursor, schema: str, release_id: int) -> TeamRating:
