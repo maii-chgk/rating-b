@@ -9,7 +9,7 @@ from django.utils import timezone
 from typing import Iterable, List, Optional, Tuple
 from honeybadger import honeybadger
 
-from b import models
+from fullminus import models
 from dj import private_settings
 
 from . import api_util
@@ -87,7 +87,8 @@ def get_api_release_date(release_id: int) -> datetime.date:
 # Saves provided teams and players ratings to our DB for provided release date
 def dump_release(cursor, schema: str, release: models.Release, teams: pd.DataFrame,
                  player_rating: PlayerRating, tournaments: Iterable[trnmt.Tournament]):
-    release.player_rating_set.all().delete()
+    print(f'RELEASE {release}')
+    print(release.player_rating_set.all().delete())
     release.team_rating_set.all().delete()
     release.player_rating_by_tournament_set.all().delete()
     release.tournament_in_release_set.all().delete()
@@ -105,8 +106,8 @@ def dump_release(cursor, schema: str, release: models.Release, teams: pd.DataFra
         f'({team_id}, {release.id}, {team["rating"]}, {team["trb"]}, {(team["rating"] - team["prev_rating"]) if team["prev_rating"] else "NULL"}, '
         + f'{team["place"] if team["place"] else "NULL"}, {(decimal.Decimal(team["place"]) - team["prev_place"]) if team["prev_place"] else "NULL"})'
         for team_id, team in teams.iterrows()]
-    db_tools.fast_insert(cursor, 'team_rating', 'team_id, release_id, rating, trb, rating_change, place, place_change', team_rows,
-                schema)
+    db_tools.fast_insert(cursor, 'team_rating', 'team_id, release_id, rating, trb, rating_change, place, place_change',
+                         team_rows, schema)
 
     bonuses_rows = []
     i = 0
@@ -166,20 +167,6 @@ def dump_rating_for_next_release(old_release: models.Release, teams_with_updated
             print('dump_rating_for_next_release: there is problem with updating team_rating.rating_for_next_release for '
                 + f'team_id {team_id}, new rating {new_rating}: {n_changed} rows are affected.')
 
-# Copies release (teams and players) with provided ID from API to provided schema in our DB
-def import_release(api_release_id: int, schema: str=SCHEMA):
-    team_rating = TeamRating(api_release_id=api_release_id)
-    player_rating = PlayerRating(api_release_id=api_release_id)
-    # TODO: Also read top_bonuses for players
-
-    release_date = get_api_release_date(api_release_id)
-    release, _ = models.Release.objects.get_or_create(date=release_date)
-    db = Postgres(url=POSTGRES_URL)
-    with db.get_cursor() as cursor:
-        dump_release(cursor, schema, release, team_rating, player_rating)
-    if verbose:
-        print(f'Loaded {len(team_rating.data)} teams and {len(player_rating.data)} players from '
-              f'release {release_date} (ID in API {api_release_id}).')
 
 
 # Loads tournaments from our DB that finish between given releases.
@@ -223,6 +210,7 @@ def teams_to_dump(release_date: datetime.date, teams: TeamRating) -> pd.DataFram
 # Reads teams and players for provided dates; finds tournaments for next release; calculates
 # new ratings and writes them to our DB.
 def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optional[Postgres] = None, flag_verbose=None):
+    print(f'NEXT DATE {next_release_date}')
     if flag_verbose is not None:
         global verbose
         verbose = flag_verbose
@@ -238,7 +226,7 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
         initial_players = PlayerRating(release=old_release,
                                        release_for_squads=next_release,
                                        cursor=cursor,
-                                       take_top_bonuses_from_api=(old_release_date == tools.LAST_OLD_RELEASE) # TODO: Remove
+                                       take_top_bonuses_from_api=(old_release_date == tools.LAST_OLD_RELEASE)
                                        )
         initial_teams.update_q(initial_players)
         if pd.isnull(initial_teams.q):

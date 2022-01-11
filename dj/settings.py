@@ -32,7 +32,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'b.apps.BConfig',
+    'fullminus.apps.BConfig',
     # 'django.contrib.admin',
     # 'django.contrib.auth',
     # 'django.contrib.contenttypes',
@@ -79,7 +79,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'OPTIONS': {
-                'options': '-c search_path=b,public'
+                'options': '-c search_path=fullminus,public'
         },
         'NAME':     private_settings.DJANGO_POSTGRES_DB_NAME,
         'USER':     private_settings.DJANGO_POSTGRES_DB_USER,

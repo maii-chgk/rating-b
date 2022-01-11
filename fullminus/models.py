@@ -128,7 +128,7 @@ class Season_roster(models.Model): # Базовый состав команды 
         unique_together = (('season', 'team', 'player', ), )
 
 
-### Tables from 'b' scheme. We can write to them.
+### Tables from 'fullminus' scheme. We can write to them.
 
 class Release(models.Model):
     title = models.CharField(verbose_name='Название', max_length=250)

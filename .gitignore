@@ -1,6 +1,6 @@
 __pycache__/
 *.py[cod]
-b/migrations/*
+fullminus/migrations/*
 dj/private_settings.py
 scripts/private_data.py
 .idea

@@ -5,7 +5,7 @@ from .tools import calc_tech_rating, get_age_in_weeks
 from .api_util import get_players_release
 from .constants import N_BEST_TOURNAMENTS_FOR_PLAYER_RATING
 from scripts import db_tools
-from b import models
+from fullminus import models
 
 
 class PlayerRating:

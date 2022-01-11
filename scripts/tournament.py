@@ -8,7 +8,7 @@ from .constants import (D2_MULTIPLIER, D2_EXPONENT_DENOMINATOR, MIN_PLAYERS_FOR_
                         MAX_BONUS, MIN_LEGIONNAIRES_TO_REDUCE_BONUS, REGULAR_TOURNAMENT_COEFFICIENT,
                         STRICT_SYNCHRONOUS_TOURNAMENT_COEFFICIENT, SYNCHRONOUS_TOURNAMENT_COEFFICIENT)
 from scripts import tools
-from b import models
+from fullminus import models
 
 
 class EmptyTournamentException(Exception):

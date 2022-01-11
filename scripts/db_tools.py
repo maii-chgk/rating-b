@@ -2,7 +2,7 @@ from django.db.models import F, Q
 import datetime
 from typing import Dict, List, Optional
 
-from b import models
+from fullminus import models
 import pandas as pd
 
 
