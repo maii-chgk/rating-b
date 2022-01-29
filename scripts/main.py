@@ -7,7 +7,6 @@ import pandas as pd
 import numpy as np
 from django.utils import timezone
 from typing import Iterable, List, Optional, Tuple
-from honeybadger import honeybadger
 
 from b import models
 from dj import private_settings
@@ -19,18 +18,14 @@ from . import tournament as trnmt
 from .teams import TeamRating
 from .players import PlayerRating
 
-try:
-    honeybadger.configure(api_key=private_settings.HONEYBADGER_API_KEY)
-except AttributeError as e:
-    print("Local run, not enabling Honeybadger reporting")
 
 SCHEMA = 'b'
 POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
-    private_settings.DJANGO_POSTRGES_DB_USER,
-    private_settings.DJANGO_POSTRGES_DB_PASSWORD,
-    private_settings.DJANGO_POSTRGES_DB_HOST,
-    private_settings.DJANGO_POSTRGES_DB_PORT,
-    private_settings.DJANGO_POSTRGES_DB_NAME,
+    private_settings.DJANGO_POSTGRES_DB_USER,
+    private_settings.DJANGO_POSTGRES_DB_PASSWORD,
+    private_settings.DJANGO_POSTGRES_DB_HOST,
+    private_settings.DJANGO_POSTGRES_DB_PORT,
+    private_settings.DJANGO_POSTGRES_DB_NAME,
 )
 decimal.getcontext().prec = 1
 verbose = False

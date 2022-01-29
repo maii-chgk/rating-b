@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/3.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
-
+import os
 from pathlib import Path
 from . import private_settings
 
@@ -21,7 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = private_settings.DJANGO_SECRET_KEY
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or private_settings.DJANGO_SECRET_KEY
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -81,11 +81,11 @@ DATABASES = {
         'OPTIONS': {
                 'options': '-c search_path=b,public'
         },
-        'NAME':     private_settings.DJANGO_POSTRGES_DB_NAME,
-        'USER':     private_settings.DJANGO_POSTRGES_DB_USER,
-        'PASSWORD': private_settings.DJANGO_POSTRGES_DB_PASSWORD,
-        'HOST':     private_settings.DJANGO_POSTRGES_DB_HOST,
-        'PORT':     private_settings.DJANGO_POSTRGES_DB_PORT,
+        'NAME':     os.environ.get('DJANGO_POSTGRES_DB_NAME') or private_settings.DJANGO_POSTGRES_DB_NAME,
+        'USER':     os.environ.get('DJANGO_POSTGRES_DB_USER') or private_settings.DJANGO_POSTGRES_DB_USER,
+        'PASSWORD': os.environ.get('DJANGO_POSTGRES_DB_PASSWORD') or private_settings.DJANGO_POSTGRES_DB_PASSWORD,
+        'HOST':     os.environ.get('DJANGO_POSTGRES_DB_HOST') or private_settings.DJANGO_POSTGRES_DB_HOST,
+        'PORT':     os.environ.get('DJANGO_POSTGRES_DB_PORT') or private_settings.DJANGO_POSTGRES_DB_PORT,
     },
 }
 
