@@ -19,8 +19,7 @@ jobs:
     - name: Render secrets to private_settings.py
       env:
         PRIVATE_SETTINGS_FILE: ${{ secrets.RATING_B_PRIVATE_SETTINGS }}
-      run: |
-        - echo $PRIVATE_SETTINGS_FILE >> dj/private_settings.py
+      run: echo $PRIVATE_SETTINGS_FILE >> dj/private_settings.py
 
     - name: Calculate all releases
       env:
