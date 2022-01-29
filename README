@@ -3,11 +3,11 @@ The top directories are:
 * dj -- core Django files.
 You need to create here private_settings.py with these constants:
 DJANGO_SECRET_KEY (it can be any string)
-DJANGO_POSTRGES_DB_NAME
-DJANGO_POSTRGES_DB_USER
-DJANGO_POSTRGES_DB_PASSWORD
-DJANGO_POSTRGES_DB_HOST
-DJANGO_POSTRGES_DB_PORT
+DJANGO_POSTGRES_DB_NAME
+DJANGO_POSTGRES_DB_USER
+DJANGO_POSTGRES_DB_PASSWORD
+DJANGO_POSTGRES_DB_HOST
+DJANGO_POSTGRES_DB_PORT
 
 * b -- Django files specific for rating B model.
   * models.py contains the descriptions of all tables in `b` schema;
