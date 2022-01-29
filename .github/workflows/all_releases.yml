@@ -1,0 +1,26 @@
+name: All releases
+
+on: workflow_dispatch
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9.9
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Calculate all releases
+      env:
+        DJANGO_POSTGRES_DB_NAME: ${{ secrets.RATING_B_DB_NAME }}
+        DJANGO_POSTGRES_DB_USER: ${{ secrets.RATING_B_DB_USER }}
+        DJANGO_POSTGRES_DB_PASSWORD: ${{ secrets.RATING_B_DB_PASSWORD }}
+        DJANGO_POSTGRES_DB_HOST: ${{ secrets.RATING_B_DB_HOST }}
+        DJANGO_POSTGRES_DB_PORT: ${{ secrets.RATING_B_DB_PORT }}
+        DJANGO_SECRET_KEY: ${{ secrets.RATING_B_SECRET_KEY }}
+      run: python src/manage.py calc_all_releases
