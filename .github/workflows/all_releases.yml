@@ -19,14 +19,19 @@ jobs:
     - name: Render secrets to private_settings.py
       env:
         PRIVATE_SETTINGS_FILE: ${{ secrets.RATING_B_PRIVATE_SETTINGS }}
-      run: echo $PRIVATE_SETTINGS_FILE >> dj/private_settings.py
-
-    - name: Calculate all releases
-      env:
         DJANGO_POSTGRES_DB_NAME: ${{ secrets.RATING_B_DB_NAME }}
         DJANGO_POSTGRES_DB_USER: ${{ secrets.RATING_B_DB_USER }}
         DJANGO_POSTGRES_DB_PASSWORD: ${{ secrets.RATING_B_DB_PASSWORD }}
         DJANGO_POSTGRES_DB_HOST: ${{ secrets.RATING_B_DB_HOST }}
         DJANGO_POSTGRES_DB_PORT: ${{ secrets.RATING_B_DB_PORT }}
         DJANGO_SECRET_KEY: ${{ secrets.RATING_B_SECRET_KEY }}
+      run: |
+        echo DJANGO_POSTGRES_DB_NAME="$DJANGO_POSTGRES_DB_NAME" >> dj/private_settings.py
+        echo DJANGO_POSTGRES_DB_USER="$DJANGO_POSTGRES_DB_USER" >> dj/private_settings.py
+        echo DJANGO_POSTGRES_DB_PASSWORD="$DJANGO_POSTGRES_DB_PASSWORD" >> dj/private_settings.py
+        echo DJANGO_POSTGRES_DB_HOST="$DJANGO_POSTGRES_DB_HOST" >> dj/private_settings.py
+        echo DJANGO_POSTGRES_DB_PORT="$DJANGO_POSTGRES_DB_PORT" >> dj/private_settings.py
+        echo DJANGO_SECRET_KEY="$DJANGO_SECRET_KEY" >> dj/private_settings.py
+
+    - name: Calculate all releases
       run: python manage.py calc_all_releases
