@@ -37,3 +37,6 @@ jobs:
 
     - name: Calculate all releases
       run: python manage.py calc_all_releases
+
+    - name: Reset cache
+      run: curl https://rating.maii.li/reset_cache
