@@ -25,6 +25,7 @@ jobs:
         DJANGO_POSTGRES_DB_HOST: ${{ secrets.RATING_B_DB_HOST }}
         DJANGO_POSTGRES_DB_PORT: ${{ secrets.RATING_B_DB_PORT }}
         DJANGO_SECRET_KEY: ${{ secrets.RATING_B_SECRET_KEY }}
+      shell: bash
       run: |
         echo DJANGO_POSTGRES_DB_NAME="$DJANGO_POSTGRES_DB_NAME" >> dj/private_settings.py
         echo DJANGO_POSTGRES_DB_USER="$DJANGO_POSTGRES_DB_USER" >> dj/private_settings.py
