@@ -25,14 +25,15 @@ jobs:
         DJANGO_POSTGRES_DB_HOST: ${{ secrets.RATING_B_DB_HOST }}
         DJANGO_POSTGRES_DB_PORT: ${{ secrets.RATING_B_DB_PORT }}
         DJANGO_SECRET_KEY: ${{ secrets.RATING_B_SECRET_KEY }}
-      shell: bash
       run: |
-        echo DJANGO_POSTGRES_DB_NAME="$DJANGO_POSTGRES_DB_NAME" >> dj/private_settings.py
-        echo DJANGO_POSTGRES_DB_USER="$DJANGO_POSTGRES_DB_USER" >> dj/private_settings.py
-        echo DJANGO_POSTGRES_DB_PASSWORD="$DJANGO_POSTGRES_DB_PASSWORD" >> dj/private_settings.py
-        echo DJANGO_POSTGRES_DB_HOST="$DJANGO_POSTGRES_DB_HOST" >> dj/private_settings.py
-        echo DJANGO_POSTGRES_DB_PORT="$DJANGO_POSTGRES_DB_PORT" >> dj/private_settings.py
-        echo DJANGO_SECRET_KEY="$DJANGO_SECRET_KEY" >> dj/private_settings.py
+        cat << EOF > dj/private_settings.py
+        DJANGO_POSTGRES_DB_NAME="$DJANGO_POSTGRES_DB_NAME"
+        DJANGO_POSTGRES_DB_USER="$DJANGO_POSTGRES_DB_USER"
+        DJANGO_POSTGRES_DB_PASSWORD="$DJANGO_POSTGRES_DB_PASSWORD"
+        DJANGO_POSTGRES_DB_HOST="$DJANGO_POSTGRES_DB_HOST"
+        DJANGO_POSTGRES_DB_PORT="$DJANGO_POSTGRES_DB_PORT"
+        DJANGO_SECRET_KEY="$DJANGO_SECRET_KEY"
+        EOF
 
     - name: Calculate all releases
       run: python manage.py calc_all_releases
