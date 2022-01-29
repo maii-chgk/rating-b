@@ -23,4 +23,4 @@ jobs:
         DJANGO_POSTGRES_DB_HOST: ${{ secrets.RATING_B_DB_HOST }}
         DJANGO_POSTGRES_DB_PORT: ${{ secrets.RATING_B_DB_PORT }}
         DJANGO_SECRET_KEY: ${{ secrets.RATING_B_SECRET_KEY }}
-      run: python src/manage.py calc_all_releases
+      run: python manage.py calc_all_releases
