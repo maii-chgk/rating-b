@@ -262,11 +262,11 @@ def calc_all_releases(first_to_calc: datetime.date, flag_verbose=None):
         global verbose
         verbose = flag_verbose
     next_release_date = first_to_calc
-    today = datetime.date.today()
     time_started = datetime.datetime.now()
     db = Postgres(url=POSTGRES_URL)
     n_releases_calculated = 0
-    while next_release_date <= today:
+    last_day_to_calc = datetime.date.today() + datetime.timedelta(days=7)
+    while next_release_date <= last_day_to_calc:
         calc_release(next_release_date=next_release_date, db=db, flag_verbose=flag_verbose)
         n_releases_calculated += 1
         next_release_date += datetime.timedelta(days=7)
