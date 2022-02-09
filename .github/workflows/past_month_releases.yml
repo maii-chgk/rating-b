@@ -1,0 +1,46 @@
+name: All releases
+
+on: workflow_dispatch
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9.9
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Render secrets to private_settings.py
+      env:
+        PRIVATE_SETTINGS_FILE: ${{ secrets.RATING_B_PRIVATE_SETTINGS }}
+        DJANGO_POSTGRES_DB_NAME: ${{ secrets.RATING_B_DB_NAME }}
+        DJANGO_POSTGRES_DB_USER: ${{ secrets.RATING_B_DB_USER }}
+        DJANGO_POSTGRES_DB_PASSWORD: ${{ secrets.RATING_B_DB_PASSWORD }}
+        DJANGO_POSTGRES_DB_HOST: ${{ secrets.RATING_B_DB_HOST }}
+        DJANGO_POSTGRES_DB_PORT: ${{ secrets.RATING_B_DB_PORT }}
+        DJANGO_SECRET_KEY: ${{ secrets.RATING_B_SECRET_KEY }}
+      run: |
+        cat << EOF > dj/private_settings.py
+        DJANGO_POSTGRES_DB_NAME="$DJANGO_POSTGRES_DB_NAME"
+        DJANGO_POSTGRES_DB_USER="$DJANGO_POSTGRES_DB_USER"
+        DJANGO_POSTGRES_DB_PASSWORD="$DJANGO_POSTGRES_DB_PASSWORD"
+        DJANGO_POSTGRES_DB_HOST="$DJANGO_POSTGRES_DB_HOST"
+        DJANGO_POSTGRES_DB_PORT="$DJANGO_POSTGRES_DB_PORT"
+        DJANGO_SECRET_KEY="$DJANGO_SECRET_KEY"
+        EOF
+
+    - name: Get Thursday from four weeks ago
+      id: date
+      run: echo "::set-output name=date::$(date -d "-5 weeks + $(( ( (3 - $(date  +%u)) % 7) + 1 )) days" +"%Y-%m-%d")"
+
+    - name: Calculate all releases
+      run: python manage.py calc_all_releases --first_to_calc {{ steps.date.outputs.date }}
+
+    - name: Reset cache
+      run: curl https://rating.maii.li/reset_cache
