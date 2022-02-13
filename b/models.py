@@ -128,6 +128,15 @@ class Season_roster(models.Model): # Базовый состав команды 
         unique_together = (('season', 'team', 'player', ), )
 
 
+class Player_rating_by_tournament_old(models.Model):
+    player = models.ForeignKey(Player, verbose_name='Игрок', on_delete=models.CASCADE, null=True)
+    tournament = models.ForeignKey(Tournament, verbose_name='Турнир', on_delete=models.PROTECT, null=True)
+    rating_original = models.IntegerField(verbose_name='Бонус игрока за турнир', null=True)
+    rating_now = models.IntegerField(verbose_name='Вклад в рейтинг игрока в последнем релизе рейтинга МАК')
+    class Meta:
+        db_table = 'rating_individual_old_details'
+        unique_together = (('player', 'tournament', ), )
+
 ### Tables from 'b' scheme. We can write to them.
 
 class Release(models.Model):

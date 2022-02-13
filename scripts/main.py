@@ -230,12 +230,7 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
         next_release, _ = models.Release.objects.get_or_create(date=next_release_date)
 
         print(f'Making a step from release {old_release_date} (id {old_release.id}) to release {next_release_date} (id {next_release.id})')
-        initial_players = PlayerRating(release=old_release,
-                                       release_for_squads=next_release,
-                                       cursor=cursor,
-                                       schema=schema,
-                                       take_top_bonuses_from_api=(old_release_date == tools.LAST_OLD_RELEASE) # TODO: Remove
-                                       )
+        initial_players = PlayerRating(release=old_release, release_for_squads=next_release)
         initial_teams.update_q(initial_players)
         if pd.isnull(initial_teams.q):
             sys.exit('Q is nan! We cannot continue.')

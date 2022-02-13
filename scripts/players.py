@@ -4,16 +4,15 @@ from typing import List, Tuple
 from .tools import calc_tech_rating, get_age_in_weeks
 from .api_util import get_players_release
 from .constants import N_BEST_TOURNAMENTS_FOR_PLAYER_RATING
-from scripts import db_tools
+from scripts import db_tools, tools
 from b import models
 
 
 class PlayerRating:
-    def __init__(self, release=None, release_for_squads=None, file_path=None,
-                 cursor=None, schema='b', api_release_id=None, take_top_bonuses_from_api=False):
+    def __init__(self, release=None, release_for_squads=None, file_path=None, api_release_id=None):
         self.data = pd.DataFrame()
         if api_release_id:
-            print(f'Creating PlayerRating by old API from release_id {api_release_id}')
+            print(f'(DEPRECATED) Creating PlayerRating by old API from release_id {api_release_id}')
             raw_rating = get_players_release(api_release_id)
             raw_rating = raw_rating[[' ИД', 'ИД базовой команды', 'Рейтинг']]
             raw_rating.columns = ['player_id', 'base_team_id', 'rating']
@@ -25,8 +24,6 @@ class PlayerRating:
         if file_path:
             self.data = pd.DataFrame.from_csv(file_path, index_col=0)
             return
-        if cursor is None:
-            raise Exception("no file_path or cursor is passed")
         if release is None:
             raise Exception("no release is passed")
         if release_for_squads is None:
@@ -34,24 +31,23 @@ class PlayerRating:
         players_dict = {player_rating['player_id']: player_rating | {'top_bonuses': []}
                         for player_rating in release.player_rating_set.values('player_id', 'rating')}
 
-        if take_top_bonuses_from_api: # TODO(alexey): remove this
-            tournament_end_dates = db_tools.get_tournament_end_dates(cursor)
-            cursor.execute('SELECT player_id, tournament_id, rating_now, rating_original '
-                           + f'FROM public.rating_individual_old_details ORDER BY rating_now;')
-            n_weeks_by_tournament_id = {}
-            for player_id, tournament_id, rating_now, rating_original in cursor.fetchall():
-                if player_id in players_dict:
-                    if tournament_id not in n_weeks_by_tournament_id:
-                        n_weeks_by_tournament_id[tournament_id] = get_age_in_weeks(tournament_end_dates[tournament_id], release_for_squads.date)
+        if release.date == tools.LAST_OLD_RELEASE:
+            # In this case we have to load individual bonuses from the special table.
+            tournament_end_dates = db_tools.get_tournament_end_dates()
+            age_in_weeks_by_tournament_id = {}
+            for item in models.Player_rating_by_tournament_old.objects.values('player_id', 'tournament_id', 'rating_original', 'rating_now'):
+                if item['player_id'] in players_dict:
+                    if item['tournament_id'] not in age_in_weeks_by_tournament_id:
+                        age_in_weeks_by_tournament_id[item['tournament_id']] = get_age_in_weeks(tournament_end_dates[item['tournament_id']], release_for_squads.date)
                     bonus = models.Player_rating_by_tournament(
                         release_id=release.id,
-                        player_id=player_id,
-                        weeks_since_tournament=n_weeks_by_tournament_id[tournament_id],
-                        tournament_id=tournament_id,
-                        initial_score=rating_original,
-                        cur_score=rating_now,
+                        player_id=item['player_id'],
+                        weeks_since_tournament=age_in_weeks_by_tournament_id[item['tournament_id']],
+                        tournament_id=item['tournament_id'],
+                        initial_score=item['rating_original'],
+                        cur_score=item['rating_now'],
                     )
-                    players_dict[player_id]['top_bonuses'].append(bonus)
+                    players_dict[item['player_id']]['top_bonuses'].append(bonus)
         else:
             for player_bonus in release.player_rating_by_tournament_set.all():
                 players_dict[player_bonus.player_id]['top_bonuses'].append(player_bonus)
