@@ -25,7 +25,7 @@ class Tournament:
         if verbose:
             print(f'Loading tournament {self.id}...')
         for team_score in trnmt_from_db.team_score_set.select_related('team'):
-            if team_score.position in (0, 9999):
+            if team_score.position in (None, 0, 9999):
                 if self.is_in_maii_rating:
                     print(f'Tournament {self.id}: team {team_score.id} ({team_score.team.title}) has incorrect place {team_score.position}! Skipping this team.')
                 continue
@@ -34,7 +34,7 @@ class Tournament:
                 'name': team_score.team.title,
                 'current_name': team_score.title,
                 'questionsTotal': team_score.total,
-                'position': float(team_score.position), # it's of type Decimal (whatever it is) for some reason
+                'position': team_score.position,
                 'n_base': 0,
                 'n_legs': 0,
                 'teamMembers': [],
