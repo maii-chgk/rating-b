@@ -6,51 +6,19 @@ from scripts import constants
 
 ### Tables from 'public' scheme. Read-only.
 
-class Country(models.Model):
-    title = models.CharField(verbose_name=u'Название', max_length=100, db_index=True, unique=True)
-    class Meta:
-        db_table = 'rating_country'
-    def __str__(self):
-        return self.name
-
-class Region(models.Model):
-    country = models.ForeignKey(Country, verbose_name=u'Страна', on_delete=models.CASCADE, blank=True, null=True)
-    # district = models.ForeignKey(District, verbose_name=u'Федеральный округ', on_delete=models.CASCADE, blank=True, null=True, default=None)
-    title = models.CharField(verbose_name=u'Название', max_length=100, db_index=True)
-    class Meta:
-        db_table = 'rating_region'
-    def __str__(self):
-        return self.name
-
 class Town(models.Model):
-    country = models.ForeignKey(Country, verbose_name=u'Страна', on_delete=models.CASCADE, blank=True, null=True)
-    region = models.ForeignKey(Region, verbose_name=u'Регион', on_delete=models.CASCADE, blank=True, null=True)
     title = models.CharField(verbose_name=u'Название', max_length=100, db_index=True)
     class Meta:
-        db_table = 'rating_town'
+        db_table = 'towns'
     def __str__(self):
         return self.name
 
-class Venue(models.Model):
-    title = models.CharField(verbose_name=u'Название', max_length=100, db_index=True)
-    town = models.ForeignKey(Town, verbose_name=u'Город', on_delete=models.SET_NULL, blank=True, null=True, default=None)
-    class Meta:
-        db_table = 'rating_venue'
-    def get_rating_url(self):
-        return '{}venues.php?id={}'.format(RATING_SITE_URL, self.id)
-    def __str__(self):
-        return self.name
-
-class Syncrequest(models.Model):
-    venue = models.ForeignKey(Venue, on_delete=models.CASCADE)
-    class Meta:
-        db_table = 'rating_syncrequest'
 
 class Team(models.Model):
     title = models.CharField(verbose_name='Название', max_length=250)
     town = models.ForeignKey(Town, verbose_name=u'Город', on_delete=models.SET_NULL, blank=True, null=True, default=None)
     class Meta:
-        db_table = 'rating_team'
+        db_table = 'teams'
 
 TRNMT_TYPE_UNKNOWN = 1
 TRNMT_TYPE_REGULAR = 2
@@ -78,27 +46,24 @@ class Tournament(models.Model):
     maii_rating = models.BooleanField(verbose_name='Учитывается ли в рейтинге МАИИ')
     start_datetime = models.DateTimeField(verbose_name='Начало отыгрыша')
     end_datetime = models.DateTimeField(verbose_name='Конец отыгрыша')
-    questionQty = models.JSONField(null=True, default=dict)
     class Meta:
-        db_table = 'rating_tournament'
+        db_table = 'tournaments'
 
 class Player(models.Model):
     last_name = models.CharField(verbose_name='Фамилия', max_length=100)
     first_name = models.CharField(verbose_name='Имя', max_length=100)
     patronymic = models.CharField(verbose_name='Отчество', max_length=100)
     class Meta:
-        db_table = 'rating_player'
+        db_table = 'players'
 
 class Team_score(models.Model): # Очки команды на данном турнире
     tournament = models.ForeignKey(Tournament, verbose_name='Турнир', on_delete=models.CASCADE)
     team = models.ForeignKey(Team, verbose_name='Команда', on_delete=models.CASCADE)
     title = models.CharField(verbose_name='Название команды на турнире', max_length=250, db_column='team_title')
     total = models.SmallIntegerField(verbose_name='Число взятых вопросов')
-    mask = fields.ArrayField(models.CharField(max_length=2, default=''), default=list)
     position = models.DecimalField(verbose_name='Занятое место', default=0, max_digits=5, decimal_places=1)
-    syncrequest = models.ForeignKey(Syncrequest, verbose_name='Заявка на отыгрыш', null=True, on_delete=models.SET_NULL)
     class Meta:
-        db_table = 'rating_result'
+        db_table = 'tournament_results'
         unique_together = (('tournament', 'team', ), )
 
 class Roster(models.Model): # Состав команды на данном турнире
@@ -115,7 +80,7 @@ class Season(models.Model):
     start = models.DateField(verbose_name='Начало сезона')
     end = models.DateField(verbose_name='Конец сезона')
     class Meta:
-        db_table = 'rating_season'
+        db_table = 'seasons'
 
 class Season_roster(models.Model): # Базовый состав команды в данном сезоне
     season = models.ForeignKey(Season, verbose_name='Сезон', on_delete=models.PROTECT)
