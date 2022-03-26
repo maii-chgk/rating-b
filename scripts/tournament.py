@@ -42,6 +42,9 @@ class Tournament:
             }
         if len(teams) == 0:
             raise EmptyTournamentException(f"There are no teams.")
+        if any(team['position'] > len(teams) for team in teams.values()):
+            raise EmptyTournamentException(f"There are teams with impossible positions")
+
         for team_player in trnmt_from_db.roster_set.all():
             if team_player.team_id not in teams:
                 print(f'Tournament {self.id}, team {team_player.team_id}: player {team_player.player_id} is in roster but the team did not play there!')
