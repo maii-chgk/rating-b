@@ -39,4 +39,4 @@ jobs:
       run: python manage.py calc_all_releases
 
     - name: Reset cache
-      run: curl https://rating.maii.li/reset_cache
+      run: curl https://rating.maii.li/reset_cache && curl https://rating.maii.li/recreate_views/b
