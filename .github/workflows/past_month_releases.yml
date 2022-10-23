@@ -39,7 +39,7 @@ jobs:
 
     - name: Get Thursday from four weeks ago
       id: date
-      run: echo "name=$(date -d "-5 weeks + $(( ( (3 - $(date  +%u)) % 7) + 1 )) days" +"%Y-%m-%d")" >> $GITHUB_OUTPUT
+      run: echo "date=$(date -d "-5 weeks + $(( ( (3 - $(date  +%u)) % 7) + 1 )) days" +"%Y-%m-%d")" >> $GITHUB_OUTPUT
 
     - name: Calculate all releases
       run: python manage.py calc_all_releases --first_to_calc ${{ steps.date.outputs.date }}
