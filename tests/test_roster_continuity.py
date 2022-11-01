@@ -105,6 +105,49 @@ class TestRosterContinuity(unittest.TestCase):
         self.assertFalse(MAIIRule2021to2022().counts(3, 4))
         self.assertFalse(MAIIRule2021to2022().counts(3, 5))
 
+    def test_2022_rules_no_legionnaires(self):
+        self.assertTrue(MAIIRuleFrom2022().counts(3, 0))
+        self.assertTrue(MAIIRuleFrom2022().counts(4, 0))
+        self.assertTrue(MAIIRuleFrom2022().counts(5, 0))
+        self.assertTrue(MAIIRuleFrom2022().counts(6, 0))
+        self.assertTrue(MAIIRuleFrom2022().counts(7, 0))
+        self.assertTrue(MAIIRuleFrom2022().counts(8, 0))
+
+        self.assertFalse(MAIIRuleFrom2022().counts(1, 0))
+        self.assertFalse(MAIIRuleFrom2022().counts(2, 0))
+
+    def test_2022_rules_few_legionnaires(self):
+        self.assertTrue(MAIIRuleFrom2022().counts(3, 1))
+        self.assertTrue(MAIIRuleFrom2022().counts(3, 2))
+        self.assertTrue(MAIIRuleFrom2022().counts(4, 1))
+        self.assertTrue(MAIIRuleFrom2022().counts(4, 2))
+        self.assertTrue(MAIIRuleFrom2022().counts(4, 3))
+        self.assertTrue(MAIIRuleFrom2022().counts(5, 1))
+        self.assertTrue(MAIIRuleFrom2022().counts(5, 2))
+        self.assertTrue(MAIIRuleFrom2022().counts(5, 3))
+        self.assertTrue(MAIIRuleFrom2022().counts(6, 1))
+        self.assertTrue(MAIIRuleFrom2022().counts(6, 2))
+        self.assertTrue(MAIIRuleFrom2022().counts(6, 3))
+        self.assertTrue(MAIIRuleFrom2022().counts(7, 0))
+        self.assertTrue(MAIIRuleFrom2022().counts(7, 1))
+        self.assertTrue(MAIIRuleFrom2022().counts(7, 2))
+
+    def test_2022_rules_too_many_legionnaires(self):
+        self.assertFalse(MAIIRuleFrom2022().counts(3, 3))
+        self.assertFalse(MAIIRuleFrom2022().counts(3, 4))
+        self.assertFalse(MAIIRuleFrom2022().counts(3, 5))
+        self.assertFalse(MAIIRuleFrom2022().counts(4, 4))
+        self.assertFalse(MAIIRuleFrom2022().counts(4, 5))
+        self.assertFalse(MAIIRuleFrom2022().counts(5, 4))
+
+    def test_2022_too_few_base_players(self):
+        self.assertFalse(MAIIRuleFrom2022().counts(1, 1))
+        self.assertFalse(MAIIRuleFrom2022().counts(1, 2))
+        self.assertFalse(MAIIRuleFrom2022().counts(1, 3))
+        self.assertFalse(MAIIRuleFrom2022().counts(2, 1))
+        self.assertFalse(MAIIRuleFrom2022().counts(2, 2))
+        self.assertFalse(MAIIRuleFrom2022().counts(2, 3))
+
 
 if __name__ == '__main__':
     unittest.main()
