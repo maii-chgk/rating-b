@@ -15,7 +15,7 @@ class TestRosterContinuity(unittest.TestCase):
         late_2022_rule = select_rule(datetime.date(2022, 12, 1))
         self.assertIsInstance(late_2022_rule, MAIIRuleFrom2022)
 
-    def test_old_rule_more_than_four_base_players(self):
+    def test_old_rule_four_plus_base_players(self):
         self.assertTrue(Pre2021Rule().counts(6, 0))
         self.assertTrue(Pre2021Rule().counts(6, 1))
         self.assertTrue(Pre2021Rule().counts(6, 2))
@@ -62,6 +62,48 @@ class TestRosterContinuity(unittest.TestCase):
         self.assertFalse(Pre2021Rule().counts(2, 3))
         self.assertFalse(Pre2021Rule().counts(2, 4))
         self.assertFalse(Pre2021Rule().counts(2, 5))
+
+    def test_2021_rule_four_plus_base_players(self):
+        self.assertTrue(MAIIRule2021to2022().counts(6, 0))
+        self.assertTrue(MAIIRule2021to2022().counts(6, 1))
+        self.assertTrue(MAIIRule2021to2022().counts(6, 2))
+        self.assertTrue(MAIIRule2021to2022().counts(6, 3))
+        self.assertTrue(MAIIRule2021to2022().counts(5, 0))
+        self.assertTrue(MAIIRule2021to2022().counts(5, 1))
+        self.assertTrue(MAIIRule2021to2022().counts(5, 2))
+        self.assertTrue(MAIIRule2021to2022().counts(5, 3))
+        self.assertTrue(MAIIRule2021to2022().counts(4, 0))
+        self.assertTrue(MAIIRule2021to2022().counts(4, 1))
+        self.assertTrue(MAIIRule2021to2022().counts(4, 2))
+        self.assertTrue(MAIIRule2021to2022().counts(4, 3))
+        self.assertTrue(MAIIRule2021to2022().counts(4, 4))
+
+    def test_2021_rule_fewer_than_four_base_players(self):
+        self.assertFalse(MAIIRule2021to2022().counts(0, 1))
+        self.assertFalse(MAIIRule2021to2022().counts(0, 2))
+        self.assertFalse(MAIIRule2021to2022().counts(0, 3))
+        self.assertFalse(MAIIRule2021to2022().counts(0, 4))
+        self.assertFalse(MAIIRule2021to2022().counts(0, 5))
+        self.assertFalse(MAIIRule2021to2022().counts(0, 6))
+        self.assertFalse(MAIIRule2021to2022().counts(1, 0))
+        self.assertFalse(MAIIRule2021to2022().counts(1, 1))
+        self.assertFalse(MAIIRule2021to2022().counts(1, 2))
+        self.assertFalse(MAIIRule2021to2022().counts(1, 3))
+        self.assertFalse(MAIIRule2021to2022().counts(1, 4))
+        self.assertFalse(MAIIRule2021to2022().counts(1, 5))
+        self.assertFalse(MAIIRule2021to2022().counts(1, 6))
+        self.assertFalse(MAIIRule2021to2022().counts(2, 0))
+        self.assertFalse(MAIIRule2021to2022().counts(2, 1))
+        self.assertFalse(MAIIRule2021to2022().counts(2, 2))
+        self.assertFalse(MAIIRule2021to2022().counts(2, 3))
+        self.assertFalse(MAIIRule2021to2022().counts(2, 4))
+        self.assertFalse(MAIIRule2021to2022().counts(2, 5))
+        self.assertFalse(MAIIRule2021to2022().counts(3, 0))
+        self.assertFalse(MAIIRule2021to2022().counts(3, 1))
+        self.assertFalse(MAIIRule2021to2022().counts(3, 2))
+        self.assertFalse(MAIIRule2021to2022().counts(3, 3))
+        self.assertFalse(MAIIRule2021to2022().counts(3, 4))
+        self.assertFalse(MAIIRule2021to2022().counts(3, 5))
 
 
 if __name__ == '__main__':
