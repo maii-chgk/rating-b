@@ -13,7 +13,7 @@ class RosterContinuity(ABC):
 
 class Pre2021Rule(RosterContinuity):
     def counts(self, base_players: int, legionnaires: int, base_name_used: bool = True):
-        return (base_players >= 4) | (base_players == 3 & base_name_used)
+        return (base_players >= 4) | ((base_players == 3) & base_name_used)
 
 
 class MAIIRule2021to2022(RosterContinuity):
