@@ -2,8 +2,7 @@ import pandas as pd
 import numpy as np
 from typing import Any, Tuple, Set
 import numpy.typing as npt
-from .constants import (D2_MULTIPLIER, D2_EXPONENT_DENOMINATOR, MIN_PLAYERS_FOR_HEREDITY,
-                        MIN_PLAYERS_FOR_HEREDITY_OLD, MIN_PLAYERS_FOR_HEREDITY_WITH_NAME_OLD,
+from .constants import (D2_MULTIPLIER, D2_EXPONENT_DENOMINATOR,
                         D1_NEGATIVE_LOWERING_COEFFICIENT, MIN_TOURNAMENT_TO_RELEASE_RATING_RATIO, TEAMS_COUNT_FOR_BP,
                         MAX_BONUS, MIN_LEGIONNAIRES_TO_REDUCE_BONUS, REGULAR_TOURNAMENT_COEFFICIENT,
                         STRICT_SYNCHRONOUS_TOURNAMENT_COEFFICIENT, SYNCHRONOUS_TOURNAMENT_COEFFICIENT)
@@ -21,7 +20,7 @@ class Tournament:
         self.id = trnmt_from_db.id
         self.release_id = release.id
         self.is_in_maii_rating = trnmt_from_db.maii_rating
-        self.continuity_rules = roster_continuity.select_rule(trnmt_from_db.start_datetime)
+        self.continuity_rule = roster_continuity.select_rule(trnmt_from_db.start_datetime)
 
         teams = {}
         if verbose:
@@ -62,9 +61,9 @@ class Tournament:
         if teams_without_players:
             raise EmptyTournamentException(f'There are {len(teams_without_players)} teams without any players. First such team: {teams_without_players[0]}.')
         self.data = pd.DataFrame(teams.values())
-        self.data['heredity'] = self.continuity_rules.counts(self.data.n_base,
-                                                             self.data.n_legs,
-                                                             self.data.name == self.data.current_name)
+        self.data['heredity'] = self.continuity_rule.counts(self.data.n_base,
+                                                            self.data.n_legs,
+                                                            self.data.name == self.data.current_name)
 
     def add_ratings(self, team_rating, player_rating):
         self.data['rt'] = self.data.teamMembers.map(lambda x: player_rating.calc_rt(x, team_rating.q))
