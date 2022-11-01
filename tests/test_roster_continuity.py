@@ -12,8 +12,8 @@ class TestRosterContinuity(unittest.TestCase):
         self.assertIsInstance(late_2021_rule, MAIIRule2021to2022)
 
     def test_rule_selection_second_maii_rule(self):
-        late_2021_rule = select_rule(datetime.date(2022, 12, 1))
-        self.assertIsInstance(late_2021_rule, MAIIRuleFrom2022)
+        late_2022_rule = select_rule(datetime.date(2022, 12, 1))
+        self.assertIsInstance(late_2022_rule, MAIIRuleFrom2022)
 
 
 if __name__ == '__main__':

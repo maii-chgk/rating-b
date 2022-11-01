@@ -2,6 +2,7 @@ import datetime
 from abc import ABC, abstractmethod
 from scripts import tools
 
+FIRST_DATE_OF_2021_RULES = datetime.date(2021, 8, 28)
 FIRST_DATE_OF_2022_RULES = datetime.date(2022, 10, 29)
 
 
@@ -27,8 +28,8 @@ class MAIIRuleFrom2022(RosterContinuity):
 
 
 def select_rule(date: datetime.date) -> RosterContinuity:
-    if date < tools.FIRST_NEW_RELEASE:
+    if date < FIRST_DATE_OF_2021_RULES:
         return Pre2021Rule()
-    if date >= FIRST_DATE_OF_2022_RULES:
+    if date < FIRST_DATE_OF_2022_RULES:
         return MAIIRule2021to2022()
     return MAIIRuleFrom2022()
