@@ -20,7 +20,7 @@ class Tournament:
         self.id = trnmt_from_db.id
         self.release_id = release.id
         self.is_in_maii_rating = trnmt_from_db.maii_rating
-        self.continuity_rule = roster_continuity.select_rule(trnmt_from_db.start_datetime)
+        self.continuity_rule = roster_continuity.select_rule(trnmt_from_db.start_datetime.date())
 
         teams = {}
         if verbose:
