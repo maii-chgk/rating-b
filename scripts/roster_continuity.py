@@ -2,7 +2,7 @@ import datetime
 from abc import ABC, abstractmethod
 
 FIRST_DATE_OF_2021_RULES = datetime.date(2021, 8, 28)
-FIRST_DATE_OF_2022_RULES = datetime.date(2022, 10, 29)
+FIRST_DATE_OF_2022_RULES = datetime.date(2022, 11, 18)
 
 
 class RosterContinuity(ABC):
