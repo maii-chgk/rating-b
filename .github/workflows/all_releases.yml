@@ -4,6 +4,8 @@ on:
    schedule:
      - cron: '0 5 * * *'
 
+concurrency: releases_calculation
+
 jobs:
   run:
     runs-on: ubuntu-latest
