@@ -3,6 +3,7 @@ import copy
 import datetime
 import decimal
 import sys
+import os
 import pandas as pd
 import numpy as np
 from django.utils import timezone
@@ -27,6 +28,8 @@ POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
     private_settings.DJANGO_POSTGRES_DB_PORT,
     private_settings.DJANGO_POSTGRES_DB_NAME,
 )
+os.environ['PGOPTIONS'] = '-c statement_timeout=60s'
+
 decimal.getcontext().prec = 1
 verbose = False
 
