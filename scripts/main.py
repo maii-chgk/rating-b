@@ -28,7 +28,7 @@ POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
     private_settings.DJANGO_POSTGRES_DB_PORT,
     private_settings.DJANGO_POSTGRES_DB_NAME,
 )
-os.environ['PGOPTIONS'] = '-c statement_timeout=60s'
+os.environ['PGOPTIONS'] = '-c statement_timeout=300s'
 
 decimal.getcontext().prec = 1
 verbose = False
