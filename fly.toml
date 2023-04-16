@@ -1,0 +1,24 @@
+# fly.toml file generated for rating-b on 2023-04-16T19:01:11+02:00
+
+app = "rating-b"
+kill_signal = "SIGINT"
+kill_timeout = 5
+primary_region = "waw"
+
+[build]
+
+[deploy]
+  release_command = "python manage.py migrate"
+
+[env]
+  PORT = "8000"
+
+[experimental]
+  auto_rollback = false
+
+[processes]
+  cron = "supercronic /app/crontab"
+
+[[statics]]
+  guest_path = "/code/static"
+  url_prefix = "/static/"

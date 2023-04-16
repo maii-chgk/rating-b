@@ -10,7 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 from pathlib import Path
-from . import private_settings
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = private_settings.DJANGO_SECRET_KEY
+SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -80,11 +80,11 @@ DATABASES = {
         'OPTIONS': {
                 'options': '-c search_path=b,public'
         },
-        'NAME':     private_settings.DJANGO_POSTGRES_DB_NAME,
-        'USER':     private_settings.DJANGO_POSTGRES_DB_USER,
-        'PASSWORD': private_settings.DJANGO_POSTGRES_DB_PASSWORD,
-        'HOST':     private_settings.DJANGO_POSTGRES_DB_HOST,
-        'PORT':     private_settings.DJANGO_POSTGRES_DB_PORT,
+        'NAME': os.environ['DJANGO_POSTGRES_DB_NAME'],
+        'USER': os.environ['DJANGO_POSTGRES_DB_USER'],
+        'PASSWORD': os.environ['DJANGO_POSTGRES_DB_PASSWORD'],
+        'HOST': os.environ['DJANGO_POSTGRES_DB_HOST'],
+        'PORT': os.environ['DJANGO_POSTGRES_DB_PORT'],
     },
 }
 
