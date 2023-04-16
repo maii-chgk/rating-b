@@ -5,3 +5,4 @@ dj/private_settings.py
 scripts/private_data.py
 .idea
 venv
+.env

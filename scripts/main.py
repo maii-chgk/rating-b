@@ -8,9 +8,9 @@ import pandas as pd
 import numpy as np
 from django.utils import timezone
 from typing import Iterable, List, Optional, Tuple
+from dotenv import load_dotenv
 
 from b import models
-from dj import private_settings
 
 from . import api_util
 from . import db_tools
@@ -19,14 +19,15 @@ from . import tournament as trnmt
 from .teams import TeamRating
 from .players import PlayerRating
 
+load_dotenv()
 
 SCHEMA = 'b'
-POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}'.format(
-    private_settings.DJANGO_POSTGRES_DB_USER,
-    private_settings.DJANGO_POSTGRES_DB_PASSWORD,
-    private_settings.DJANGO_POSTGRES_DB_HOST,
-    private_settings.DJANGO_POSTGRES_DB_PORT,
-    private_settings.DJANGO_POSTGRES_DB_NAME,
+POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}?sslmode=disable'.format(
+    os.environ['DJANGO_POSTGRES_DB_USER'],
+    os.environ['DJANGO_POSTGRES_DB_PASSWORD'],
+    os.environ['DJANGO_POSTGRES_DB_HOST'],
+    os.environ['DJANGO_POSTGRES_DB_PORT'],
+    os.environ['DJANGO_POSTGRES_DB_NAME']
 )
 os.environ['PGOPTIONS'] = '-c statement_timeout=300s'
 
