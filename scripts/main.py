@@ -18,6 +18,7 @@ from . import tools
 from . import tournament as trnmt
 from .teams import TeamRating
 from .players import PlayerRating
+from .changes import calculate_hash
 
 load_dotenv()
 
@@ -243,17 +244,24 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optio
         changed_teams = db_tools.get_teams_with_new_players(old_release_date, next_release_date)
         teams_with_updated_rating = initial_teams.update_ratings_for_changed_teams(changed_teams)
         dump_rating_for_next_release(old_release, teams_with_updated_rating)
-
+        
         tournaments = get_tournaments_for_release(cursor, old_release, next_release)
         new_teams, new_players = make_step_for_teams_and_players(
             cursor, initial_teams, initial_players, tournaments, new_release=next_release)
         new_teams.data['place'] = tools.calc_places(new_teams.data['rating'].values)
         for tournament in tournaments:
             dump_team_bonuses_for_tournament(cursor, schema, tournament)
+        dump_release(cursor, schema, next_release, teams_to_dump(next_release_date, new_teams), new_players,
+                     tournaments)
 
-        dump_release(cursor, schema, next_release, teams_to_dump(next_release_date, new_teams), new_players, tournaments)
-        next_release.updated_at = timezone.now()
-        next_release.save()
+        release_hash = calculate_hash(new_players, new_teams, tournaments)
+        
+        if release_hash != next_release.hash:
+            print("hashes are different, updating release")
+            next_release.updated_at = timezone.now()
+            next_release.hash = release_hash
+            next_release.save()
+
 
 # Calculates all releases starting from FIRST_NEW_RELEASE until current date
 def calc_all_releases(first_to_calc: datetime.date, flag_verbose=None):
