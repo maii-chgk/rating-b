@@ -108,6 +108,7 @@ class Release(models.Model):
     title = models.CharField(verbose_name='Название', max_length=250)
     date = models.DateField(verbose_name='Дата из мира игр', unique=True)
     updated_at = models.DateTimeField(verbose_name='Дата последнего изменения', auto_now=True)
+    hash = models.IntegerField(verbose_name="Hash of ratings in this release")
     class Meta:
         db_table = 'release'
 
