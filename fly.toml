@@ -1,20 +1,19 @@
-# fly.toml file generated for rating-b on 2023-04-16T19:01:11+02:00
+# fly.toml app configuration file generated for rating-b on 2023-05-28T17:49:59+02:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
 app = "rating-b"
-kill_signal = "SIGINT"
-kill_timeout = 5
 primary_region = "waw"
-
-[build]
+kill_signal = "SIGINT"
+kill_timeout = "5s"
 
 [deploy]
   release_command = "python manage.py migrate"
 
 [env]
   PORT = "8000"
-
-[experimental]
-  auto_rollback = false
+  PRIMARY_REGION = "waw"
 
 [processes]
   cron = "supercronic /app/crontab"
