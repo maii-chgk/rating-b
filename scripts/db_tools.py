@@ -16,8 +16,7 @@ def fast_insert(cursor, table: str, columns: str, rows: List[str], schema: str =
     :param rows:
     :return:
     """
-    print(f'Inserting {len(rows)} into {table}')
-    BATCH_SIZE = 500
+    BATCH_SIZE = 50000
     for i in range(0, len(rows), BATCH_SIZE):
         cursor.execute(f'INSERT INTO {schema}.{table} ({columns}) VALUES ' + ', '.join(rows[i:i + BATCH_SIZE]) + ';')
 
