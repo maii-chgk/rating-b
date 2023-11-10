@@ -1,5 +1,5 @@
 asgiref==3.4.1
-Django==3.2.8
+Django==3.2.23
 pandas==1.5.3
 postgres==4.0
 psycopg2-binary==2.9.6
