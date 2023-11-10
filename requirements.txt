@@ -1,4 +1,4 @@
-asgiref==3.4.1
+asgiref==3.7.2
 Django==3.2.23
 pandas==1.5.3
 postgres==4.0
