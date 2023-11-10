@@ -27,7 +27,7 @@ class Tournament:
             print(f'Loading tournament {self.id}...')
         for team_score in trnmt_from_db.team_score_set.select_related('team'):
             if team_score.position in (None, 0, 9999):
-                if self.is_in_maii_rating:
+                if self.is_in_maii_rating and verbose:
                     print(f'Tournament {self.id}: team {team_score.id} ({team_score.team.title}) has incorrect place {team_score.position}! Skipping this team.')
                 continue
             teams[team_score.team_id] = {
@@ -48,7 +48,8 @@ class Tournament:
 
         for team_player in trnmt_from_db.roster_set.all():
             if team_player.team_id not in teams:
-                print(f'Tournament {self.id}, team {team_player.team_id}: player {team_player.player_id} is in roster but the team did not play there!')
+                if verbose:
+                    print(f'Tournament {self.id}, team {team_player.team_id}: player {team_player.player_id} is in roster but the team did not play there!')
                 continue
             teams[team_player.team_id]['teamMembers'].append(team_player.player_id)
             if team_player.flag == 'Б':
