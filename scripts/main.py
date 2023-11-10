@@ -62,7 +62,7 @@ def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_p
             [{'player_id': player_id, 'rating': 0, 'top_bonuses': []} for player_id in
              new_player_ids]).set_index("player_id").join(
             db_tools.get_base_teams_for_players(new_release.date), how='left')
-        final_players.data = final_players.data.append(new_players)
+        final_players.data = pd.concat([final_players.data, new_players])
 
     # We need these columns to dump the difference between new and old rating.
     final_teams.data['prev_rating'] = final_teams.data['rating']

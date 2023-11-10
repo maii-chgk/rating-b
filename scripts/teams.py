@@ -80,7 +80,7 @@ class TeamRating:
         new_teams['rating'] = new_teams['trb'] * NEW_TEAMS_LOWERING_COEFFICIENT
         new_teams['prev_rating'] = None
         new_teams['prev_place'] = None
-        self.data = self.data.append(new_teams.drop("baseTeamMembers", axis=1))
+        self.data = pd.concat([self.data, new_teams.drop("baseTeamMembers", axis=1)])
 
     def calc_trb(self, player_rating: PlayerRating):
         self.data['trb'] = player_rating.calc_tech_rating_all_teams(q=self.q)
