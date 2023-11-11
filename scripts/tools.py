@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import datetime
-import decimal
 import numpy.typing as npt
 from typing import Optional
 from .constants import (TECHNICAL_RATING_DISTRIBUTION, TECHNICAL_RATING_RELEVANT_PLAYERS)
@@ -96,7 +95,7 @@ def get_prev_release_date(release_date: datetime.date) -> datetime.date:
 
 
 # Find such n that we should multiply bonus for given tournament when calculating players bonuses for given release by 0.99^n.
-# Old tournaments that end from from Friday till Thursday belong
+# Old tournaments that end from Friday till Thursday belong
 def get_age_in_weeks(tournament_end: datetime.date, release_date: datetime.date) -> int:
     tournament_release_date = get_release_date(tournament_end)
     if tournament_release_date > release_date:

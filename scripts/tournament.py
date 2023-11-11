@@ -80,7 +80,7 @@ class Tournament:
     def calculate_bonus_predictions(tournament_ratings: npt.ArrayLike, c=1):
         """
         produces array of bonuses based on the array of game ratings of participants
-        :parameter tournament_ratings - sorted descendingly game ratings (rg) of teams
+        :parameter tournament_ratings - sorted descending game ratings (rg) of teams
         """
         raw_preds = np.round(tools.rolling_window(tournament_ratings, TEAMS_COUNT_FOR_BP).dot(
             2. ** np.arange(0, -TEAMS_COUNT_FOR_BP, -1)) * c)

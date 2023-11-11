@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import List, Tuple
+from typing import List
 
 from .tools import calc_tech_rating, get_age_in_weeks
 from .api_util import get_players_release
