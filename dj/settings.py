@@ -78,7 +78,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'OPTIONS': {
-                'options': '-c search_path=b,public'
+                'options': '-c search_path=b,public -c statement_timeout=60s -c lock_timeout=10s'
         },
         'NAME': os.environ['DJANGO_POSTGRES_DB_NAME'],
         'USER': os.environ['DJANGO_POSTGRES_DB_USER'],
