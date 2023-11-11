@@ -1,4 +1,3 @@
-from postgres import Postgres
 import copy
 import datetime
 import decimal
@@ -7,8 +6,9 @@ import os
 import pandas as pd
 import numpy as np
 from django.utils import timezone
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Tuple
 from dotenv import load_dotenv
+from django.db import connection
 
 from b import models
 
@@ -23,26 +23,19 @@ from .changes import calculate_hash
 load_dotenv()
 
 SCHEMA = 'b'
-POSTGRES_URL = 'postgresql://{}:{}@{}:{}/{}?sslmode=disable'.format(
-    os.environ['DJANGO_POSTGRES_DB_USER'],
-    os.environ['DJANGO_POSTGRES_DB_PASSWORD'],
-    os.environ['DJANGO_POSTGRES_DB_HOST'],
-    os.environ['DJANGO_POSTGRES_DB_PORT'],
-    os.environ['DJANGO_POSTGRES_DB_NAME']
-)
-os.environ['PGOPTIONS'] = '-c statement_timeout=300s'
 
 decimal.getcontext().prec = 1
 verbose = False
 
+
 # Reads the teams rating for given release_id.
-def get_team_rating(cursor, schema: str, release_id: int) -> TeamRating:
+def get_team_rating(release_id: int) -> TeamRating:
     teams_list = list(models.Team_rating.objects.filter(release_id=release_id).values('team_id', 'rating', 'trb', 'place').order_by('-rating'))
     return TeamRating(teams_list=teams_list)
 
 
 # Calculates new teams and players rating based on old rating and provided set of tournaments.
-def make_step_for_teams_and_players(cursor, initial_teams: TeamRating, initial_players: PlayerRating,
+def make_step_for_teams_and_players(initial_teams: TeamRating, initial_players: PlayerRating,
                  tournaments: Iterable[trnmt.Tournament],
                  new_release: models.Release) -> Tuple[TeamRating, PlayerRating]:
     existing_player_ids = set(initial_players.data.index)
@@ -85,12 +78,9 @@ def get_api_release_date(release_id: int) -> datetime.date:
 
 
 # Saves provided teams and players ratings to our DB for provided release date
-def dump_release(cursor, schema: str, release: models.Release, teams: pd.DataFrame,
+def dump_release(schema: str, release: models.Release, teams: pd.DataFrame,
                  player_rating: PlayerRating, tournaments: Iterable[trnmt.Tournament]):
-    release.player_rating_set.all().delete()
-    release.team_rating_set.all().delete()
-    release.player_rating_by_tournament_set.all().delete()
-    release.tournament_in_release_set.all().delete()
+    delete_previous_results(release.id, schema)
 
     if verbose:
         print(f'Dumping ratings for {len(player_rating.data.index)} players and {len(teams.index)} teams...')
@@ -98,22 +88,34 @@ def dump_release(cursor, schema: str, release: models.Release, teams: pd.DataFra
         f'({player_id}, {release.id}, {player["rating"]}, {(player["rating"] - player["prev_rating"]) if player["prev_rating"] else "NULL"})'
         for player_id, player in player_rating.data.iterrows()
         if (player["rating"] > 0)]
-    db_tools.fast_insert(cursor, 'player_rating', 'player_id, release_id, rating, rating_change',
-                player_rows, schema)
+    db_tools.fast_insert('player_rating', 'player_id, release_id, rating, rating_change', player_rows, schema)
 
     team_rows = [
         f'({team_id}, {release.id}, {team["rating"]}, {team["trb"]}, {(team["rating"] - team["prev_rating"]) if team["prev_rating"] else "NULL"}, '
         + f'{team["place"] if team["place"] else "NULL"}, {(decimal.Decimal(team["place"]) - team["prev_place"]) if team["prev_place"] else "NULL"})'
         for team_id, team in teams.iterrows()]
-    db_tools.fast_insert(cursor, 'team_rating', 'team_id, release_id, rating, trb, rating_change, place, place_change', team_rows,
-                schema)
+    db_tools.fast_insert('team_rating', 'team_id, release_id, rating, trb, rating_change, place, place_change',
+                         team_rows, schema)
 
+    save_player_rating_by_tournament(player_rating, release, schema)
+
+    tournament_in_release_rows = [f'({release.id}, {tournament.id})' for tournament in tournaments if
+                                  tournament.is_in_maii_rating]
+    db_tools.fast_insert('tournament_in_release', 'release_id, tournament_id', tournament_in_release_rows, schema)
+
+
+def delete_previous_results(release_id, schema):
+    with connection.cursor() as cursor:
+        cursor.execute(f'delete from {schema}.player_rating where release_id = {release_id}')
+        cursor.execute(f'delete from {schema}.team_rating where release_id = {release_id}')
+        cursor.execute(f'delete from {schema}.player_rating_by_tournament where release_id = {release_id}')
+        cursor.execute(f'delete from {schema}.tournament_in_release where release_id = {release_id}')
+
+def save_player_rating_by_tournament(player_rating, release, schema):
     bonuses_rows = []
-    i = 0
     for player_id, player in player_rating.data.iterrows():
         if player["rating"] == 0:
             continue
-        i += 1
         for player_rating_by_trnmt in player['top_bonuses']:
             if player_rating_by_trnmt.cur_score > 0:
                 bonuses_rows.append('(' + ', '.join(str(x) for x in [
@@ -121,24 +123,20 @@ def dump_release(cursor, schema: str, release: models.Release, teams: pd.DataFra
                     player_id,
                     player_rating_by_trnmt.tournament_result_id if player_rating_by_trnmt.tournament_result_id else 'NULL',
                     player_rating_by_trnmt.tournament_id if player_rating_by_trnmt.tournament_id else 'NULL',
-                    # player_rating_by_trnmt.tournament_result.rating if player_rating_by_trnmt.tournament_result else player_rating_by_trnmt.initial_score,
                     player_rating_by_trnmt.initial_score,
                     player_rating_by_trnmt.weeks_since_tournament,
                     player_rating_by_trnmt.cur_score,
                 ]) + ')')
-    if verbose:
-        print(f'Dumping {len(bonuses_rows)} player bonuses...')
-    db_tools.fast_insert(cursor, 'player_rating_by_tournament',
-                'release_id, player_id, tournament_result_id, tournament_id, initial_score, weeks_since_tournament, cur_score',
-                bonuses_rows, schema)
 
-    tournament_in_release_rows = [f'({release.id}, {tournament.id})' for tournament in tournaments if tournament.is_in_maii_rating]
-    db_tools.fast_insert(cursor, 'tournament_in_release', 'release_id, tournament_id', tournament_in_release_rows, schema)
+    db_tools.fast_insert('player_rating_by_tournament',
+                         'release_id, player_id, tournament_result_id, tournament_id, initial_score, weeks_since_tournament, cur_score',
+                         bonuses_rows, schema)
 
 
 # Saves tournament bonuses that were already calculated.
-def dump_team_bonuses_for_tournament(cursor, schema: str, trnmt: trnmt.Tournament):
-    models.Tournament_result.objects.filter(tournament_id=trnmt.id).delete()
+def dump_team_bonuses_for_tournament(schema: str, trnmt: trnmt.Tournament):
+    with connection.cursor() as cursor:
+        cursor.execute(f'delete from {schema}.tournament_result where tournament_id = {trnmt.id}')
     rows = []
     for _, team in trnmt.data.iterrows():
         rows.append('(' + ', '.join(str(x) for x in [
@@ -157,7 +155,8 @@ def dump_team_bonuses_for_tournament(cursor, schema: str, trnmt: trnmt.Tournamen
             team["rg"],
             'TRUE' if team["heredity"] else 'FALSE',
         ]) + ')')
-    db_tools.fast_insert(cursor, 'tournament_result', 'tournament_id, team_id, mp, bp, m, rating, d1, d2, rating_change, r, rt, rb, rg, is_in_maii_rating', rows, schema)
+    db_tools.fast_insert('tournament_result', 'tournament_id, team_id, mp, bp, m, rating, d1, d2, rating_change, r, rt, rb, rg, is_in_maii_rating', rows, schema)
+
 
 def dump_rating_for_next_release(old_release: models.Release, teams_with_updated_rating: List[Tuple[int, int]]):
     for team_id, new_rating in teams_with_updated_rating:
@@ -165,6 +164,7 @@ def dump_rating_for_next_release(old_release: models.Release, teams_with_updated
         if n_changed != 1:
             print('dump_rating_for_next_release: there is problem with updating team_rating.rating_for_next_release for '
                 + f'team_id {team_id}, new rating {new_rating}: {n_changed} rows are affected.')
+
 
 # Copies release (teams and players) with provided ID from API to provided schema in our DB
 def import_release(api_release_id: int, schema: str=SCHEMA):
@@ -174,16 +174,14 @@ def import_release(api_release_id: int, schema: str=SCHEMA):
 
     release_date = get_api_release_date(api_release_id)
     release, _ = models.Release.objects.get_or_create(date=release_date)
-    db = Postgres(url=POSTGRES_URL)
-    with db.get_cursor() as cursor:
-        dump_release(cursor, schema, release, team_rating, player_rating)
+    dump_release(schema, release, team_rating, player_rating, [])
     if verbose:
         print(f'Loaded {len(team_rating.data)} teams and {len(player_rating.data)} players from '
               f'release {release_date} (ID in API {api_release_id}).')
 
 
 # Loads tournaments from our DB that finish between given releases.
-def get_tournaments_for_release(cursor, old_release: models.Release,
+def get_tournaments_for_release(old_release: models.Release,
                                 new_release: models.Release) -> List[trnmt.Tournament]:
     tournaments = []
     n_counted_in_maii_rating = 0
@@ -195,7 +193,7 @@ def get_tournaments_for_release(cursor, old_release: models.Release,
     for trnmt_from_db in tournaments_qs.order_by('pk'):
         # We need only tournaments with available results of at lease some teams.
         try:
-            tournament = trnmt.Tournament(cursor, trnmt_from_db=trnmt_from_db, release=new_release, verbose=verbose)
+            tournament = trnmt.Tournament(trnmt_from_db=trnmt_from_db, release=new_release, verbose=verbose)
             tournaments.append(tournament)
             if trnmt_from_db.maii_rating:
                 n_counted_in_maii_rating += 1
@@ -220,47 +218,46 @@ def teams_to_dump(release_date: datetime.date, teams: TeamRating) -> pd.DataFram
         print(f'We exclude from the rating {n_skipped_teams} teams that have no roster for current season.')
     return teams.data[teams.data.index.isin(teams_with_rosters)]
 
+
 # Reads teams and players for provided dates; finds tournaments for next release; calculates
 # new ratings and writes them to our DB.
-def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, db: Optional[Postgres] = None, flag_verbose=None):
+def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, flag_verbose=None):
     if flag_verbose is not None:
         global verbose
         verbose = flag_verbose
-    if db is None:
-        db = Postgres(url=POSTGRES_URL)
-    with db.get_cursor() as cursor:
-        old_release_date = tools.get_prev_release_date(next_release_date)
-        old_release = models.Release.objects.get(date=old_release_date)
-        initial_teams = get_team_rating(cursor, schema, old_release.id)
-        next_release, _ = models.Release.objects.get_or_create(date=next_release_date)
+    old_release_date = tools.get_prev_release_date(next_release_date)
+    old_release = models.Release.objects.get(date=old_release_date)
+    initial_teams = get_team_rating(old_release.id)
+    next_release, _ = models.Release.objects.get_or_create(date=next_release_date)
 
-        print(f'Making a step from release {old_release_date} (id {old_release.id}) to release {next_release_date} (id {next_release.id})')
-        initial_players = PlayerRating(release=old_release, release_for_squads=next_release)
-        initial_teams.update_q(initial_players)
-        if pd.isnull(initial_teams.q):
-            sys.exit('Q is nan! We cannot continue.')
-        initial_teams.calc_trb(initial_players)
+    print(
+        f'Making a step from release {old_release_date} (id {old_release.id}) to release {next_release_date} (id {next_release.id})')
+    initial_players = PlayerRating(release=old_release, release_for_squads=next_release)
+    initial_teams.update_q(initial_players)
+    if pd.isnull(initial_teams.q):
+        sys.exit('Q is nan! We cannot continue.')
+    initial_teams.calc_trb(initial_players)
 
-        changed_teams = db_tools.get_teams_with_new_players(old_release_date, next_release_date)
-        teams_with_updated_rating = initial_teams.update_ratings_for_changed_teams(changed_teams)
-        dump_rating_for_next_release(old_release, teams_with_updated_rating)
+    changed_teams = db_tools.get_teams_with_new_players(old_release_date, next_release_date)
+    teams_with_updated_rating = initial_teams.update_ratings_for_changed_teams(changed_teams)
+    dump_rating_for_next_release(old_release, teams_with_updated_rating)
 
-        tournaments = get_tournaments_for_release(cursor, old_release, next_release)
-        new_teams, new_players = make_step_for_teams_and_players(
-            cursor, initial_teams, initial_players, tournaments, new_release=next_release)
-        new_teams.data['place'] = tools.calc_places(new_teams.data['rating'].values)
-        for tournament in tournaments:
-            dump_team_bonuses_for_tournament(cursor, schema, tournament)
-        dump_release(cursor, schema, next_release, teams_to_dump(next_release_date, new_teams), new_players,
-                     tournaments)
+    tournaments = get_tournaments_for_release(old_release, next_release)
+    new_teams, new_players = make_step_for_teams_and_players(initial_teams, initial_players, tournaments,
+                                                             new_release=next_release)
+    new_teams.data['place'] = tools.calc_places(new_teams.data['rating'].values)
 
-        release_hash = calculate_hash(new_players, new_teams, tournaments)
+    for tournament in tournaments:
+        dump_team_bonuses_for_tournament(schema, tournament)
+    dump_release(schema, next_release, teams_to_dump(next_release_date, new_teams), new_players,
+                 tournaments)
 
-        if release_hash != next_release.hash:
-            print("hashes are different, updating release")
-            next_release.updated_at = timezone.now()
-            next_release.hash = release_hash
-            next_release.save()
+    release_hash = calculate_hash(new_players, new_teams, tournaments)
+    if release_hash != next_release.hash:
+        print("hashes are different, updating release")
+        next_release.updated_at = timezone.now()
+        next_release.hash = release_hash
+        next_release.save()
 
 
 # Calculates all releases starting from FIRST_NEW_RELEASE until current date
@@ -270,11 +267,10 @@ def calc_all_releases(first_to_calc: datetime.date, flag_verbose=None):
         verbose = flag_verbose
     next_release_date = first_to_calc
     time_started = datetime.datetime.now()
-    db = Postgres(url=POSTGRES_URL)
     n_releases_calculated = 0
     last_day_to_calc = datetime.date.today() + datetime.timedelta(days=7)
     while next_release_date <= last_day_to_calc:
-        calc_release(next_release_date=next_release_date, db=db, flag_verbose=flag_verbose)
+        calc_release(next_release_date=next_release_date, flag_verbose=flag_verbose)
         n_releases_calculated += 1
         next_release_date += datetime.timedelta(days=7)
     time_spent = datetime.datetime.now() - time_started

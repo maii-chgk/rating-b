@@ -1,5 +1,4 @@
 from django.core.management.base import BaseCommand
-from postgres import Postgres
 import datetime
 
 from scripts import main

@@ -1,25 +1,26 @@
 from django.db.models import F, Q
+from django.db import connection
 import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from b import models
 import pandas as pd
 
 
-def fast_insert(cursor, table: str, columns: str, rows: List[str], schema: str = 'b'):
+def fast_insert(table: str, columns: str, rows: List[str], schema: str = 'b', batch_size: int = 5000):
     """
-    Insert provided list of rows to provided table, 100 items for query
-    :param cursor:
+    Insert provided list of rows to provided table, BATCH_SIZE items for query
     :param schema:
     :param table:
     :param columns:
     :param rows:
+    :param batch_size: number of items in a single query
     :return:
     """
     print(f'Inserting {len(rows)} into {table}')
-    BATCH_SIZE = 500
-    for i in range(0, len(rows), BATCH_SIZE):
-        cursor.execute(f'INSERT INTO {schema}.{table} ({columns}) VALUES ' + ', '.join(rows[i:i + BATCH_SIZE]) + ';')
+    with connection.cursor() as cursor:
+        for i in range(0, len(rows), batch_size):
+            cursor.execute(f'INSERT INTO {schema}.{table} ({columns}) VALUES ' + ', '.join(rows[i:i + batch_size]) + ';')
 
 
 def get_season(release_date: datetime.date) -> models.Season:
@@ -43,7 +44,5 @@ def get_teams_with_new_players(old_release: datetime.date, new_release: datetime
 
 
 def get_tournament_end_dates() -> Dict[int, datetime.date]:
-    res = {}
-    for tournament in models.Tournament.objects.all().values('pk', 'end_datetime'):
-        res[tournament['pk']] = tournament['end_datetime'].date()
-    return res
+    return {tournament['pk']: tournament['end_datetime'].date()
+            for tournament in models.Tournament.objects.all().values('pk', 'end_datetime')}
