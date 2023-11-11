@@ -6,3 +6,5 @@ scripts/private_data.py
 .idea
 venv
 .env
+.DS_Store
+*.log

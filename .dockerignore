@@ -2,3 +2,5 @@ fly.toml
 .git/
 *.sqlite3
 .env
+*.log
+.DS_Store
