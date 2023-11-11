@@ -15,7 +15,7 @@ class EmptyTournamentException(Exception):
 
 
 class Tournament:
-    def __init__(self, cursor, trnmt_from_db: models.Tournament, release: models.Release, verbose: bool=False):
+    def __init__(self, trnmt_from_db: models.Tournament, release: models.Release, verbose: bool=False):
         self.coeff = self.tournament_type_to_coeff(trnmt_from_db.typeoft_id)
         self.id = trnmt_from_db.id
         self.release_id = release.id

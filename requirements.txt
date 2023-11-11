@@ -1,7 +1,6 @@
 asgiref==3.7.2
 Django==3.2.23
 pandas==1.5.3
-postgres==4.0
 psycopg2-binary==2.9.9
 psycopg2-pool==1.1
 python-dateutil==2.8.2

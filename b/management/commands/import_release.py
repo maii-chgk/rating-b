@@ -1,9 +1,7 @@
 from django.core.management.base import BaseCommand
-from postgres import Postgres
-import datetime
 
 from scripts import main
-from scripts import private_data
+
 
 class Command(BaseCommand):
 	help = 'Imports teams and players rating from API for given release date.'
