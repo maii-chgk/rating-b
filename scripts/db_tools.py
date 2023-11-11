@@ -44,7 +44,5 @@ def get_teams_with_new_players(old_release: datetime.date, new_release: datetime
 
 
 def get_tournament_end_dates() -> Dict[int, datetime.date]:
-    res = {}
-    for tournament in models.Tournament.objects.all().values('pk', 'end_datetime'):
-        res[tournament['pk']] = tournament['end_datetime'].date()
-    return res
+    return {tournament['pk']: tournament['end_datetime'].date()
+            for tournament in models.Tournament.objects.all().values('pk', 'end_datetime')}
