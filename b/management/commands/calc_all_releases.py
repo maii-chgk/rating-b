@@ -4,7 +4,7 @@ import datetime
 from scripts import main, tools
 
 class Command(BaseCommand):
-	help = 'Calculates all releases since Spetember 2021.'
+	help = 'Calculates all releases since September 2021.'
 
 	def add_arguments(self, parser):
 		parser.add_argument('--verbose', action='store_true')
