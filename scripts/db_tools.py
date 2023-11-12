@@ -1,26 +1,33 @@
-from django.db.models import F, Q
-from django.db import connection
 import datetime
 from typing import Dict, List
-
-from b import models
+from django.db.models import F, Q
+from django.db import connection
 import pandas as pd
+from b import models
+from .constants import SCHEMA_NAME
 
 
-def fast_insert(table: str, columns: str, rows: List[str], schema: str = 'b', batch_size: int = 5000):
+def fast_insert(table: str, data: List[Dict], batch_size: int = 5000):
     """
-    Insert provided list of rows to provided table, BATCH_SIZE items for query
-    :param schema:
-    :param table:
-    :param columns:
-    :param rows:
-    :param batch_size: number of items in a single query
+    Inserts data from all dicts in a list. Keys in the first dict will be used as columns.
+    :param table: table to be updated
+    :param data: list of uniform dicts
+    :param batch_size: number of rows to be inserted in a single query
     :return:
     """
-    print(f'Inserting {len(rows)} into {table}')
+    if not data:
+        return
+    print(f'Inserting {len(data)} rows into {table}')
+    columns = data[0].keys()
+    columns_joined = ", ".join(columns)
+
     with connection.cursor() as cursor:
-        for i in range(0, len(rows), batch_size):
-            cursor.execute(f'INSERT INTO {schema}.{table} ({columns}) VALUES ' + ', '.join(rows[i:i + batch_size]) + ';')
+        for i in range(0, len(data), batch_size):
+            values = ',\n'.join(
+                f'({",".join(str(row[column]) for column in columns)})'
+                for row in data[i:i + batch_size]
+            )
+            cursor.execute(f'INSERT INTO {SCHEMA_NAME}.{table} ({columns_joined}) VALUES {values}')
 
 
 def get_season(release_date: datetime.date) -> models.Season:

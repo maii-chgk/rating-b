@@ -2,7 +2,6 @@ import copy
 import datetime
 import decimal
 import sys
-import os
 import pandas as pd
 import numpy as np
 from django.utils import timezone
@@ -19,10 +18,9 @@ from . import tournament as trnmt
 from .teams import TeamRating
 from .players import PlayerRating
 from .changes import calculate_hash
-
+from .constants import SCHEMA_NAME
 load_dotenv()
 
-SCHEMA = 'b'
 
 decimal.getcontext().prec = 1
 verbose = False
@@ -78,84 +76,106 @@ def get_api_release_date(release_id: int) -> datetime.date:
 
 
 # Saves provided teams and players ratings to our DB for provided release date
-def dump_release(schema: str, release: models.Release, teams: pd.DataFrame,
+def dump_release(release: models.Release, teams: pd.DataFrame,
                  player_rating: PlayerRating, tournaments: Iterable[trnmt.Tournament]):
-    delete_previous_results(release.id, schema)
-
-    if verbose:
-        print(f'Dumping ratings for {len(player_rating.data.index)} players and {len(teams.index)} teams...')
-    player_rows = [
-        f'({player_id}, {release.id}, {player["rating"]}, {(player["rating"] - player["prev_rating"]) if player["prev_rating"] else "NULL"})'
-        for player_id, player in player_rating.data.iterrows()
-        if (player["rating"] > 0)]
-    db_tools.fast_insert('player_rating', 'player_id, release_id, rating, rating_change', player_rows, schema)
-
-    team_rows = [
-        f'({team_id}, {release.id}, {team["rating"]}, {team["trb"]}, {(team["rating"] - team["prev_rating"]) if team["prev_rating"] else "NULL"}, '
-        + f'{team["place"] if team["place"] else "NULL"}, {(decimal.Decimal(team["place"]) - team["prev_place"]) if team["prev_place"] else "NULL"})'
-        for team_id, team in teams.iterrows()]
-    db_tools.fast_insert('team_rating', 'team_id, release_id, rating, trb, rating_change, place, place_change',
-                         team_rows, schema)
-
-    save_player_rating_by_tournament(player_rating, release, schema)
-
-    tournament_in_release_rows = [f'({release.id}, {tournament.id})' for tournament in tournaments if
-                                  tournament.is_in_maii_rating]
-    db_tools.fast_insert('tournament_in_release', 'release_id, tournament_id', tournament_in_release_rows, schema)
+    delete_previous_results(release.id)
+    save_player_rating(release.id, player_rating)
+    save_team_ratings(release.id, teams)
+    save_player_rating_by_tournament(release.id, player_rating)
+    save_tournaments_in_release(release.id, tournaments)
 
 
-def delete_previous_results(release_id, schema):
+def delete_previous_results(release_id):
     with connection.cursor() as cursor:
-        cursor.execute(f'delete from {schema}.player_rating where release_id = {release_id}')
-        cursor.execute(f'delete from {schema}.team_rating where release_id = {release_id}')
-        cursor.execute(f'delete from {schema}.player_rating_by_tournament where release_id = {release_id}')
-        cursor.execute(f'delete from {schema}.tournament_in_release where release_id = {release_id}')
+        cursor.execute(f'delete from {SCHEMA_NAME}.player_rating where release_id = {release_id}')
+        cursor.execute(f'delete from {SCHEMA_NAME}.team_rating where release_id = {release_id}')
+        cursor.execute(f'delete from {SCHEMA_NAME}.player_rating_by_tournament where release_id = {release_id}')
+        cursor.execute(f'delete from {SCHEMA_NAME}.tournament_in_release where release_id = {release_id}')
 
-def save_player_rating_by_tournament(player_rating, release, schema):
-    bonuses_rows = []
-    for player_id, player in player_rating.data.iterrows():
-        if player["rating"] == 0:
-            continue
-        for player_rating_by_trnmt in player['top_bonuses']:
-            if player_rating_by_trnmt.cur_score > 0:
-                bonuses_rows.append('(' + ', '.join(str(x) for x in [
-                    release.id,
-                    player_id,
-                    player_rating_by_trnmt.tournament_result_id if player_rating_by_trnmt.tournament_result_id else 'NULL',
-                    player_rating_by_trnmt.tournament_id if player_rating_by_trnmt.tournament_id else 'NULL',
-                    player_rating_by_trnmt.initial_score,
-                    player_rating_by_trnmt.weeks_since_tournament,
-                    player_rating_by_trnmt.cur_score,
-                ]) + ')')
 
-    db_tools.fast_insert('player_rating_by_tournament',
-                         'release_id, player_id, tournament_result_id, tournament_id, initial_score, weeks_since_tournament, cur_score',
-                         bonuses_rows, schema)
+def save_player_rating(release_id: int, player_rating: PlayerRating):
+    player_ratings = [
+        {
+            'release_id': release_id,
+            'player_id': player_id,
+            'rating': player["rating"],
+            'rating_change': (player['rating'] - player['prev_rating']) if player['prev_rating'] else 'NULL'
+        }
+        for player_id, player in player_rating.data.iterrows()
+        if player['rating'] > 0
+    ]
+    db_tools.fast_insert('player_rating', player_ratings)
+
+
+def save_team_ratings(release_id: int, teams: pd.DataFrame):
+    team_ratings = [
+        {
+            'release_id': release_id,
+            'team_id': team_id,
+            'rating': team["rating"],
+            'trb': team['trb'],
+            'rating_change': (team['rating'] - team['prev_rating']) if team['prev_rating'] else 'NULL',
+            'place': team['place'] or 'NULL',
+            'place_change': (decimal.Decimal(team['place']) - team['prev_place']) if team['prev_place'] else 'NULL'
+        }
+        for team_id, team in teams.iterrows()
+    ]
+    db_tools.fast_insert('team_rating', team_ratings)
+
+
+def save_player_rating_by_tournament(release_id: int, player_rating: PlayerRating):
+    bonuses = [
+        {
+            'release_id': release_id,
+            'player_id': player_id,
+            'tournament_result_id':  player_rating_by_trnmt.tournament_result_id or 'NULL',
+            'tournament_id': player_rating_by_trnmt.tournament_id or 'NULL',
+            'initial_score': player_rating_by_trnmt.initial_score,
+            'weeks_since_tournament': player_rating_by_trnmt.weeks_since_tournament,
+            'cur_score': player_rating_by_trnmt.cur_score
+        }
+        for player_id, player in player_rating.data.iterrows() if player["rating"] != 0
+        for player_rating_by_trnmt in player['top_bonuses']
+    ]
+    db_tools.fast_insert('player_rating_by_tournament', bonuses)
+
+
+def save_tournaments_in_release(release_id: int, tournaments: Iterable[trnmt.Tournament]):
+    tournaments_in_release = [
+        {
+            'release_id': release_id,
+            'tournament_id': tournament.id
+        }
+        for tournament in tournaments if tournament.is_in_maii_rating
+    ]
+    db_tools.fast_insert('tournament_in_release', tournaments_in_release)
 
 
 # Saves tournament bonuses that were already calculated.
-def dump_team_bonuses_for_tournament(schema: str, trnmt: trnmt.Tournament):
+def dump_team_bonuses_for_tournament(trnmt: trnmt.Tournament):
     with connection.cursor() as cursor:
-        cursor.execute(f'delete from {schema}.tournament_result where tournament_id = {trnmt.id}')
-    rows = []
-    for _, team in trnmt.data.iterrows():
-        rows.append('(' + ', '.join(str(x) for x in [
-            trnmt.id,
-            team["team_id"],
-            team["expected_place"],
-            team["score_pred"],
-            team["position"],
-            team["score_real"],
-            team["D1"],
-            team["D2"],
-            team["bonus"],
-            team["r"],
-            team["rt"],
-            team["rb"],
-            team["rg"],
-            'TRUE' if team["heredity"] else 'FALSE',
-        ]) + ')')
-    db_tools.fast_insert('tournament_result', 'tournament_id, team_id, mp, bp, m, rating, d1, d2, rating_change, r, rt, rb, rg, is_in_maii_rating', rows, schema)
+        cursor.execute(f'delete from {SCHEMA_NAME}.tournament_result where tournament_id = {trnmt.id}')
+
+    tournament_results = [
+        {
+            'tournament_id': trnmt.id,
+            'team_id': team['team_id'],
+            'mp': team['expected_place'],
+            'bp': team['score_pred'],
+            'm': team['position'],
+            'rating': team['score_real'],
+            'd1': team['D1'],
+            'd2': team['D2'],
+            'rating_change': team['bonus'],
+            'r': team['r'],
+            'rt': team['rt'],
+            'rb': team['rb'],
+            'rg': team['rg'],
+            'is_in_maii_rating': 'TRUE' if team["heredity"] else 'FALSE'
+        }
+        for _, team in trnmt.data.iterrows()
+    ]
+    db_tools.fast_insert('tournament_result', tournament_results)
 
 
 def dump_rating_for_next_release(old_release: models.Release, teams_with_updated_rating: List[Tuple[int, int]]):
@@ -166,15 +186,15 @@ def dump_rating_for_next_release(old_release: models.Release, teams_with_updated
                 + f'team_id {team_id}, new rating {new_rating}: {n_changed} rows are affected.')
 
 
-# Copies release (teams and players) with provided ID from API to provided schema in our DB
-def import_release(api_release_id: int, schema: str=SCHEMA):
+# Copies release (teams and players) with provided ID from API to provided SCHEMA_NAME in our DB
+def import_release(api_release_id: int):
     team_rating = TeamRating(api_release_id=api_release_id)
     player_rating = PlayerRating(api_release_id=api_release_id)
     # TODO: Also read top_bonuses for players
 
     release_date = get_api_release_date(api_release_id)
     release, _ = models.Release.objects.get_or_create(date=release_date)
-    dump_release(schema, release, team_rating, player_rating, [])
+    dump_release(release, team_rating, player_rating, [])
     if verbose:
         print(f'Loaded {len(team_rating.data)} teams and {len(player_rating.data)} players from '
               f'release {release_date} (ID in API {api_release_id}).')
@@ -221,7 +241,7 @@ def teams_to_dump(release_date: datetime.date, teams: TeamRating) -> pd.DataFram
 
 # Reads teams and players for provided dates; finds tournaments for next release; calculates
 # new ratings and writes them to our DB.
-def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, flag_verbose=None):
+def calc_release(next_release_date: datetime.date, flag_verbose=None):
     if flag_verbose is not None:
         global verbose
         verbose = flag_verbose
@@ -248,9 +268,8 @@ def calc_release(next_release_date: datetime.date, schema: str=SCHEMA, flag_verb
     new_teams.data['place'] = tools.calc_places(new_teams.data['rating'].values)
 
     for tournament in tournaments:
-        dump_team_bonuses_for_tournament(schema, tournament)
-    dump_release(schema, next_release, teams_to_dump(next_release_date, new_teams), new_players,
-                 tournaments)
+        dump_team_bonuses_for_tournament(tournament)
+    dump_release(next_release, teams_to_dump(next_release_date, new_teams), new_players, tournaments)
 
     release_hash = calculate_hash(new_players, new_teams, tournaments)
     if release_hash != next_release.hash:
