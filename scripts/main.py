@@ -7,7 +7,7 @@ import numpy as np
 from django.utils import timezone
 from typing import Iterable, List, Tuple
 from dotenv import load_dotenv
-from django.db import connection
+from django.db import connection, transaction
 
 from b import models
 
@@ -267,9 +267,10 @@ def calc_release(next_release_date: datetime.date, flag_verbose=None):
                                                              new_release=next_release)
     new_teams.data['place'] = tools.calc_places(new_teams.data['rating'].values)
 
-    for tournament in tournaments:
-        dump_team_bonuses_for_tournament(tournament)
-    dump_release(next_release, teams_to_dump(next_release_date, new_teams), new_players, tournaments)
+    with transaction.atomic():
+        for tournament in tournaments:
+            dump_team_bonuses_for_tournament(tournament)
+        dump_release(next_release, teams_to_dump(next_release_date, new_teams), new_players, tournaments)
 
     release_hash = calculate_hash(new_players, new_teams, tournaments)
     if release_hash != next_release.hash:
