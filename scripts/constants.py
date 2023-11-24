@@ -1,5 +1,6 @@
 import numpy as np
 
+SCHEMA_NAME = 'b'
 J = 0.99
 N_BEST_TOURNAMENTS_FOR_PLAYER_RATING = 7
 MAX_BONUS = 2300  # А.3.4

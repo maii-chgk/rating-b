@@ -52,6 +52,7 @@ delete from tournaments
 where id not in (6560, 6639, 7086, 7182, 7513, 6044, 6114, 7225, 7325);
 
 delete from base_rosters
-where season_id != 56;
+where season_id not in (53, 56);
 
 delete from b.release where id > 2;
+alter sequence b."b.release_details_id_seq" restart with 3;
