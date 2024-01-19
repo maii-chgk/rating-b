@@ -277,6 +277,7 @@ def calc_release(next_release_date: datetime.date, flag_verbose=None):
         print("hashes are different, updating release")
         next_release.updated_at = timezone.now()
         next_release.hash = release_hash
+        next_release.q = new_teams.q
         next_release.save()
 
 
