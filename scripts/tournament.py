@@ -100,7 +100,7 @@ class Tournament:
         self.data['score_real'] = tools.calc_score_real(self.data.score_pred.values, self.data.position.values)
         self.data['D1'] = self.calc_d1()
         self.data['D2'] = D2_MULTIPLIER * np.exp((self.data.score_real - MAX_BONUS) / D2_EXPONENT_DENOMINATOR)
-        self.data['bonus_raw'] = (self.coeff * (self.data['D1'] + self.data['D2'])).astype('int')
+        self.data['bonus_raw'] = (self.coeff * (self.data['D1'] + self.data['D2'])).astype('float64')
         self.data['bonus'] = self.data.bonus_raw
         self.data.loc[self.data.heredity & (self.data.n_legs >= MIN_LEGIONNAIRES_TO_REDUCE_BONUS), 'bonus'] *= \
             (2 / self.data[self.data.heredity & (self.data.n_legs >= MIN_LEGIONNAIRES_TO_REDUCE_BONUS)]['n_legs'])

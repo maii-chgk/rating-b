@@ -30,8 +30,8 @@ class TestReleases(unittest.TestCase):
 
         team_at_place_57 = Team_rating.objects.filter(release=self.release).order_by("place")[56]
         self.assertEqual(65268, team_at_place_57.team_id)
-        self.assertEqual(7653, team_at_place_57.rating)
-        self.assertEqual(-82, team_at_place_57.rating_change)
+        self.assertEqual(7652, team_at_place_57.rating)
+        self.assertEqual(-83, team_at_place_57.rating_change)
         self.assertEqual(7962, team_at_place_57.trb)
         self.assertEqual(8, team_at_place_57.place_change)
         self.assertEqual(57, team_at_place_57.place)
@@ -78,7 +78,7 @@ class TestReleases(unittest.TestCase):
         self.assertEqual(1, first_place.mp)
         self.assertEqual(49804, first_place.team_id)
         self.assertEqual(2079, first_place.rating)
-        self.assertEqual(79, first_place.rating_change)
+        self.assertEqual(80, first_place.rating_change)
         self.assertEqual(2079, first_place.bp)
         self.assertEqual(0, first_place.d1)
         self.assertEqual(160, first_place.d2)
