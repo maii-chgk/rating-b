@@ -149,5 +149,5 @@ class TestRosterContinuity(unittest.TestCase):
         self.assertFalse(MAIIRuleFrom2022().counts(2, 3))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
