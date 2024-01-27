@@ -2,10 +2,18 @@ import pandas as pd
 import numpy as np
 from typing import Any, Tuple, Set
 import numpy.typing as npt
-from .constants import (D2_MULTIPLIER, D2_EXPONENT_DENOMINATOR,
-                        D1_NEGATIVE_LOWERING_COEFFICIENT, MIN_TOURNAMENT_TO_RELEASE_RATING_RATIO, TEAMS_COUNT_FOR_BP,
-                        MAX_BONUS, MIN_LEGIONNAIRES_TO_REDUCE_BONUS, REGULAR_TOURNAMENT_COEFFICIENT,
-                        STRICT_SYNCHRONOUS_TOURNAMENT_COEFFICIENT, SYNCHRONOUS_TOURNAMENT_COEFFICIENT)
+from .constants import (
+    D2_MULTIPLIER,
+    D2_EXPONENT_DENOMINATOR,
+    D1_NEGATIVE_LOWERING_COEFFICIENT,
+    MIN_TOURNAMENT_TO_RELEASE_RATING_RATIO,
+    TEAMS_COUNT_FOR_BP,
+    MAX_BONUS,
+    MIN_LEGIONNAIRES_TO_REDUCE_BONUS,
+    REGULAR_TOURNAMENT_COEFFICIENT,
+    STRICT_SYNCHRONOUS_TOURNAMENT_COEFFICIENT,
+    SYNCHRONOUS_TOURNAMENT_COEFFICIENT,
+)
 from scripts import tools, roster_continuity
 from b import models
 
@@ -15,66 +23,97 @@ class EmptyTournamentException(Exception):
 
 
 class Tournament:
-    def __init__(self, trnmt_from_db: models.Tournament, release: models.Release, verbose: bool=False):
+    def __init__(
+        self,
+        trnmt_from_db: models.Tournament,
+        release: models.Release,
+        verbose: bool = False,
+    ):
         self.coeff = self.tournament_type_to_coeff(trnmt_from_db.typeoft_id)
         self.id = trnmt_from_db.id
         self.release_id = release.id
         self.is_in_maii_rating = trnmt_from_db.maii_rating
-        self.continuity_rule = roster_continuity.select_rule(trnmt_from_db.start_datetime.date())
+        self.continuity_rule = roster_continuity.select_rule(
+            trnmt_from_db.start_datetime.date()
+        )
 
         teams = {}
         if verbose:
-            print(f'Loading tournament {self.id}...')
-        for team_score in trnmt_from_db.team_score_set.select_related('team'):
+            print(f"Loading tournament {self.id}...")
+        for team_score in trnmt_from_db.team_score_set.select_related("team"):
             if team_score.position in (None, 0, 9999):
                 if self.is_in_maii_rating and verbose:
-                    print(f'Tournament {self.id}: team {team_score.id} ({team_score.team.title}) has incorrect place {team_score.position}! Skipping this team.')
+                    print(
+                        f"Tournament {self.id}: team {team_score.id} ({team_score.team.title}) has incorrect place {team_score.position}! Skipping this team."
+                    )
                 continue
             teams[team_score.team_id] = {
-                'team_id': team_score.team_id,
-                'name': team_score.team.title,
-                'current_name': team_score.title,
-                'questionsTotal': team_score.total,
-                'position': team_score.position,
-                'n_base': 0,
-                'n_legs': 0,
-                'teamMembers': [],
-                'baseTeamMembers': [],
+                "team_id": team_score.team_id,
+                "name": team_score.team.title,
+                "current_name": team_score.title,
+                "questionsTotal": team_score.total,
+                "position": team_score.position,
+                "n_base": 0,
+                "n_legs": 0,
+                "teamMembers": [],
+                "baseTeamMembers": [],
             }
         if len(teams) == 0:
             raise EmptyTournamentException(f"There are no teams.")
-        if any(team['position'] > len(teams) for team in teams.values()):
+        if any(team["position"] > len(teams) for team in teams.values()):
             raise EmptyTournamentException(f"There are teams with impossible positions")
 
         for team_player in trnmt_from_db.roster_set.all():
             if team_player.team_id not in teams:
                 if verbose:
-                    print(f'Tournament {self.id}, team {team_player.team_id}: player {team_player.player_id} is in roster but the team did not play there!')
+                    print(
+                        f"Tournament {self.id}, team {team_player.team_id}: player {team_player.player_id} is in roster but the team did not play there!"
+                    )
                 continue
-            teams[team_player.team_id]['teamMembers'].append(team_player.player_id)
-            if team_player.flag == 'Б':
-                teams[team_player.team_id]['n_base'] += 1
-                teams[team_player.team_id]['baseTeamMembers'].append(team_player.player_id)
+            teams[team_player.team_id]["teamMembers"].append(team_player.player_id)
+            if team_player.flag == "Б":
+                teams[team_player.team_id]["n_base"] += 1
+                teams[team_player.team_id]["baseTeamMembers"].append(
+                    team_player.player_id
+                )
             else:
-                teams[team_player.team_id]['n_legs'] += 1
+                teams[team_player.team_id]["n_legs"] += 1
 
-        teams_without_players = [team_id for team_id, team_data in teams.items() if len(team_data['teamMembers']) == 0]
+        teams_without_players = [
+            team_id
+            for team_id, team_data in teams.items()
+            if len(team_data["teamMembers"]) == 0
+        ]
         if teams_without_players:
-            raise EmptyTournamentException(f'There are {len(teams_without_players)} teams without any players. First such team: {teams_without_players[0]}.')
+            raise EmptyTournamentException(
+                f"There are {len(teams_without_players)} teams without any players. First such team: {teams_without_players[0]}."
+            )
         self.data = pd.DataFrame(teams.values())
-        self.data['heredity'] = self.continuity_rule.counts(self.data.n_base,
-                                                            self.data.n_legs,
-                                                            self.data.name == self.data.current_name)
+        self.data["heredity"] = self.continuity_rule.counts(
+            self.data.n_base, self.data.n_legs, self.data.name == self.data.current_name
+        )
 
     def add_ratings(self, team_rating, player_rating):
-        self.data['rt'] = self.data.teamMembers.map(lambda x: player_rating.calc_rt(x, team_rating.q))
-        self.data['r'] = np.where(self.data.heredity, self.data.team_id.map(team_rating.get_team_rating), 0)
-        self.data['rb'] = np.where(self.data.heredity, self.data.team_id.map(team_rating.get_trb), 0)
-        self.data['rg'] = np.where(self.data.rb, self.data.r * self.data.rt / self.data.rb, self.data.rt)
-        self.data['rg'] = np.where(self.data.rt < self.data.rb,
-                                   np.maximum(self.data.rg, MIN_TOURNAMENT_TO_RELEASE_RATING_RATIO * self.data.r),
-                                   np.minimum(self.data.rg, np.maximum(self.data.r, self.data.rt)))
-        self.data['expected_place'] = tools.calc_places(self.data['rg'].values)
+        self.data["rt"] = self.data.teamMembers.map(
+            lambda x: player_rating.calc_rt(x, team_rating.q)
+        )
+        self.data["r"] = np.where(
+            self.data.heredity, self.data.team_id.map(team_rating.get_team_rating), 0
+        )
+        self.data["rb"] = np.where(
+            self.data.heredity, self.data.team_id.map(team_rating.get_trb), 0
+        )
+        self.data["rg"] = np.where(
+            self.data.rb, self.data.r * self.data.rt / self.data.rb, self.data.rt
+        )
+        self.data["rg"] = np.where(
+            self.data.rt < self.data.rb,
+            np.maximum(
+                self.data.rg, MIN_TOURNAMENT_TO_RELEASE_RATING_RATIO * self.data.r
+            ),
+            np.minimum(self.data.rg, np.maximum(self.data.r, self.data.rt)),
+        )
+        self.data["expected_place"] = tools.calc_places(self.data["rg"].values)
 
     @staticmethod
     def calculate_bonus_predictions(tournament_ratings: npt.ArrayLike, c=1):
@@ -82,8 +121,12 @@ class Tournament:
         produces array of bonuses based on the array of game ratings of participants
         :parameter tournament_ratings - sorted descending game ratings (rg) of teams
         """
-        raw_preds = np.round(tools.rolling_window(tournament_ratings, TEAMS_COUNT_FOR_BP).dot(
-            2. ** np.arange(0, -TEAMS_COUNT_FOR_BP, -1)) * c)
+        raw_preds = np.round(
+            tools.rolling_window(tournament_ratings, TEAMS_COUNT_FOR_BP).dot(
+                2.0 ** np.arange(0, -TEAMS_COUNT_FOR_BP, -1)
+            )
+            * c
+        )
         samesies = tournament_ratings[:-1] == tournament_ratings[1:]
         for ind in np.nonzero(samesies)[0]:
             raw_preds[ind + 1] = raw_preds[ind]
@@ -95,38 +138,54 @@ class Tournament:
         return d_one
 
     def calc_bonuses(self, team_rating):
-        self.data.sort_values(by='rg', ascending=False, inplace=True)
-        self.data['score_pred'] = self.calculate_bonus_predictions(self.data.rg.values, c=team_rating.c)
-        self.data['score_real'] = tools.calc_score_real(self.data.score_pred.values, self.data.position.values)
-        self.data['D1'] = self.calc_d1()
-        self.data['D2'] = D2_MULTIPLIER * np.exp((self.data.score_real - MAX_BONUS) / D2_EXPONENT_DENOMINATOR)
-        self.data['bonus_raw'] = (self.coeff * (self.data['D1'] + self.data['D2'])).astype('float64')
-        self.data['bonus'] = self.data.bonus_raw
-        self.data.loc[self.data.heredity & (self.data.n_legs >= MIN_LEGIONNAIRES_TO_REDUCE_BONUS), 'bonus'] *= \
-            (2 / self.data[self.data.heredity & (self.data.n_legs >= MIN_LEGIONNAIRES_TO_REDUCE_BONUS)]['n_legs'])
-        self.data.sort_values(by=['position', 'name'], inplace=True)
+        self.data.sort_values(by="rg", ascending=False, inplace=True)
+        self.data["score_pred"] = self.calculate_bonus_predictions(
+            self.data.rg.values, c=team_rating.c
+        )
+        self.data["score_real"] = tools.calc_score_real(
+            self.data.score_pred.values, self.data.position.values
+        )
+        self.data["D1"] = self.calc_d1()
+        self.data["D2"] = D2_MULTIPLIER * np.exp(
+            (self.data.score_real - MAX_BONUS) / D2_EXPONENT_DENOMINATOR
+        )
+        self.data["bonus_raw"] = (
+            self.coeff * (self.data["D1"] + self.data["D2"])
+        ).astype("float64")
+        self.data["bonus"] = self.data.bonus_raw
+        self.data.loc[
+            self.data.heredity & (self.data.n_legs >= MIN_LEGIONNAIRES_TO_REDUCE_BONUS),
+            "bonus",
+        ] *= (
+            2
+            / self.data[
+                self.data.heredity
+                & (self.data.n_legs >= MIN_LEGIONNAIRES_TO_REDUCE_BONUS)
+            ]["n_legs"]
+        )
+        self.data.sort_values(by=["position", "name"], inplace=True)
 
     def apply_bonuses(self, team_rating, player_rating) -> Tuple[Any, Any]:
         for i, team in self.data.iterrows():
-            if team['heredity']:
-                team_rating.data.at[team['team_id'], 'rating'] += team['bonus']
-            for player_id in team['teamMembers']:
+            if team["heredity"]:
+                team_rating.data.at[team["team_id"], "rating"] += team["bonus"]
+            for player_id in team["teamMembers"]:
                 bonus = models.Player_rating_by_tournament(
                     release_id=self.release_id,
                     player_id=player_id,
                     weeks_since_tournament=0,
                     tournament_id=self.id,
-                    initial_score=team['score_real'],
-                    cur_score=team['score_real'],
+                    initial_score=team["score_real"],
+                    cur_score=team["score_real"],
                 )
                 bonus.raw_cur_score = bonus.cur_score
-                player_rating.data.loc[player_id]['top_bonuses'].append(bonus)
+                player_rating.data.loc[player_id]["top_bonuses"].append(bonus)
         return team_rating, player_rating
 
     def get_new_player_ids(self, existing_players: Set[int]) -> Set[int]:
         res = set()
         for i, team in self.data.iterrows():
-            for player_id in team['teamMembers']:
+            for player_id in team["teamMembers"]:
                 if player_id not in existing_players:
                     res.add(player_id)
         return res
