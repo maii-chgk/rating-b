@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Any, Tuple, Set
+from typing import Any, Tuple, Set, List, Dict
 import numpy.typing as npt
 from .constants import (
     D2_MULTIPLIER,
@@ -85,9 +85,12 @@ class Tournament:
             if len(team_data["teamMembers"]) == 0
         ]
         if teams_without_players:
-            raise EmptyTournamentException(
-                f"There are {len(teams_without_players)} teams without any players. First such team: {teams_without_players[0]}."
-            )
+            if len(teams_without_players) == len(teams):
+                raise EmptyTournamentException("All teams have no players")
+
+            print(f"Adjusting for missing rosters in tournament {self.id}")
+            teams = self.adjust_for_missing_rosters(teams_without_players, teams)
+
         self.data = pd.DataFrame(teams.values())
         self.data["heredity"] = self.continuity_rule.counts(
             self.data.n_base, self.data.n_legs, self.data.name == self.data.current_name
@@ -199,3 +202,37 @@ class Tournament:
         if ttype in models.TRNMT_TYPES:
             return SYNCHRONOUS_TOURNAMENT_COEFFICIENT
         raise Exception(f"tournament type {ttype} is not supported!")
+
+    @staticmethod
+    def adjust_for_missing_rosters(teams_without_rosters: List[int], teams: Dict):
+        if not teams_without_rosters:
+            return teams
+
+        positions_without_rosters = [
+            team["position"]
+            for team_id, team in teams.items()
+            if team_id in teams_without_rosters
+        ]
+
+        for team_id, team in teams.items():
+            if team_id in teams_without_rosters:
+                continue
+
+            teams_above_without_roster = len(
+                [pos for pos in positions_without_rosters if pos < team["position"]]
+            )
+
+            teams_in_same_position = len(
+                [pos for pos in positions_without_rosters if pos == team["position"]]
+            )
+
+            if teams_above_without_roster:
+                team["position"] -= teams_above_without_roster
+
+            if teams_in_same_position:
+                team["position"] -= teams_in_same_position / 2.0
+
+        for team_id in teams_without_rosters:
+            del teams[team_id]
+
+        return teams
