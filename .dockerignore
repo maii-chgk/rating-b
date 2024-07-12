@@ -5,4 +5,4 @@ fly.toml
 *.log
 .DS_Store
 venv/
-
+.venv/
