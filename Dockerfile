@@ -1,4 +1,4 @@
-ARG PYTHON_VERSION=3.12-bookworm
+ARG PYTHON_VERSION=3.12-slim-bookworm
 
 FROM python:${PYTHON_VERSION}
 
@@ -13,7 +13,9 @@ COPY requirements.txt /tmp/requirements.txt
 
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y curl
+    apt-get install -y curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN set -ex && \
     pip install --upgrade pip && \
