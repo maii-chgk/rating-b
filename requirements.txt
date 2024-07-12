@@ -9,5 +9,5 @@ pytz==2023.3.post1
 six==1.16.0
 sqlparse==0.4.4
 python-dotenv==1.0.0
-mmh3==3.1.0
+mmh3==4.1.0
 numpy==1.26.1
