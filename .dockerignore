@@ -4,3 +4,5 @@ fly.toml
 .env
 *.log
 .DS_Store
+venv/
+
