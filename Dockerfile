@@ -2,14 +2,12 @@ ARG PYTHON_VERSION=3.12-slim-bookworm
 
 FROM python:${PYTHON_VERSION}
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 RUN mkdir -p /app
 
 WORKDIR /app
-
-COPY requirements.txt /tmp/requirements.txt
 
 RUN apt-get update && \
     apt-get upgrade -y && \
@@ -17,10 +15,15 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN set -ex && \
-    pip install --upgrade pip && \
-    pip install -r /tmp/requirements.txt && \
-    rm -rf /root/.cache/
+RUN curl -sSL https://install.python-poetry.org | python3 -
+
+ENV PATH="${PATH}:/root/.local/bin"
+
+COPY pyproject.toml poetry.lock /app/
+
+RUN poetry config virtualenvs.in-project true && \
+    poetry install --no-interaction --no-ansi && \
+    poetry cache clear --all -n pypi
 
 COPY . /app/
 

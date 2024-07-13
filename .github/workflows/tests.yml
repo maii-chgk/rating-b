@@ -28,15 +28,17 @@ jobs:
         run: pg_restore --no-owner -h localhost -U postgres -d test_db tests/rating.backup
         env:
           PGPASSWORD: postgres
+      - name: Install poetry
+        run: pipx install poetry
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.12
-          cache: 'pip'
-      - name: Install Dependencies
-        run: pip install -r requirements.txt
+          cache: 'poetry'
+      - name: Install dependencies
+        run: poetry install
       - name: Run tests
-        run: python -m unittest
+        run: poetry run python -m unittest
         env:
           DJANGO_POSTGRES_DB_PASSWORD: postgres
           DJANGO_POSTGRES_DB_HOST: localhost
@@ -46,4 +48,4 @@ jobs:
           DJANGO_SETTINGS_MODULE: dj.settings
           DJANGO_SECRET_KEY: dummy_value
       - name: Run Black formatter
-        run: python -m black . --check
+        run: poetry run python -m black . --check
