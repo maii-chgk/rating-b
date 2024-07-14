@@ -103,7 +103,7 @@ class TeamRating:
         new_teams["trb"] = new_teams.baseTeamMembers.map(
             lambda x: player_rating.calc_rt(x, self.q)
         )
-        new_teams["trb"].fillna(0, inplace=True)
+        new_teams.fillna({"trb": 0}, inplace=True)
         new_teams["rating"] = new_teams["trb"] * NEW_TEAMS_LOWERING_COEFFICIENT
         new_teams["prev_rating"] = None
         new_teams["prev_place"] = None
@@ -111,4 +111,4 @@ class TeamRating:
 
     def calc_trb(self, player_rating: PlayerRating):
         self.data["trb"] = player_rating.calc_tech_rating_all_teams(q=self.q)
-        self.data["trb"].fillna(0, inplace=True)
+        self.data.fillna({"trb": 0}, inplace=True)
