@@ -4,6 +4,7 @@ import decimal
 import sys
 import pandas as pd
 import numpy as np
+import logging
 from django.utils import timezone
 from typing import Iterable, List, Tuple
 from dotenv import load_dotenv
@@ -22,9 +23,9 @@ from .constants import SCHEMA_NAME
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
 
 decimal.getcontext().prec = 1
-verbose = False
 
 
 # Reads the teams rating for given release_id.
@@ -47,11 +48,10 @@ def make_step_for_teams_and_players(
     existing_player_ids = set(initial_players.data.index)
     new_player_ids = set()
     for tournament in tournaments:
-        if verbose:
-            print(
-                f"Tournament {tournament.id}..."
-                + ("" if tournament.is_in_maii_rating else " (not in MAII rating)")
-            )
+        logger.debug(
+            f"Tournament {tournament.id}..."
+            + ("" if tournament.is_in_maii_rating else " (not in MAII rating)")
+        )
         initial_teams.add_new_teams(tournament, initial_players)
         tournament.add_ratings(initial_teams, initial_players)
         tournament.calc_bonuses(initial_teams)
@@ -234,7 +234,7 @@ def dump_rating_for_next_release(
             rating_for_next_release=new_rating
         )
         if n_changed != 1:
-            print(
+            logger.warning(
                 "dump_rating_for_next_release: there is problem with updating team_rating.rating_for_next_release for "
                 + f"team_id {team_id}, new rating {new_rating}: {n_changed} rows are affected."
             )
@@ -249,11 +249,10 @@ def import_release(api_release_id: int):
     release_date = get_api_release_date(api_release_id)
     release, _ = models.Release.objects.get_or_create(date=release_date)
     dump_release(release, team_rating, player_rating, [])
-    if verbose:
-        print(
-            f"Loaded {len(team_rating.data)} teams and {len(player_rating.data)} players from "
-            f"release {release_date} (ID in API {api_release_id})."
-        )
+    logger.debug(
+        f"Loaded {len(team_rating.data)} teams and {len(player_rating.data)} players from "
+        f"release {release_date} (ID in API {api_release_id})."
+    )
 
 
 # Loads tournaments from our DB that finish between given releases.
@@ -272,18 +271,19 @@ def get_tournaments_for_release(
         # We need only tournaments with available results of at lease some teams.
         try:
             tournament = trnmt.Tournament(
-                trnmt_from_db=trnmt_from_db, release=new_release, verbose=verbose
+                trnmt_from_db=trnmt_from_db, release=new_release
             )
             tournaments.append(tournament)
             if trnmt_from_db.maii_rating:
                 n_counted_in_maii_rating += 1
         except trnmt.EmptyTournamentException as e:
             if trnmt_from_db.maii_rating:
-                print(f"Skipping tournament with id {trnmt_from_db.id}: {e}")
-    if verbose:
-        print(
-            f"There are {len(tournaments)} tournaments ({n_counted_in_maii_rating} in MAII rating) with at least one result between {old_release.date} and {new_release.date}."
-        )
+                logger.warning(f"Skipping tournament with id {trnmt_from_db.id}: {e}")
+
+    logger.debug(
+        f"There are {len(tournaments)} tournaments ({n_counted_in_maii_rating} in MAII rating) with at least one "
+        f"result between {old_release.date} and {new_release.date}."
+    )
     return tournaments
 
 
@@ -301,8 +301,8 @@ def teams_to_dump(release_date: datetime.date, teams: TeamRating) -> pd.DataFram
         )
     res = teams.data[teams.data.index.isin(teams_with_rosters)]
     n_skipped_teams = len(teams.data[~teams.data.index.isin(teams_with_rosters)])
-    if n_skipped_teams and verbose:
-        print(
+    if n_skipped_teams:
+        logger.debug(
             f"We exclude from the rating {n_skipped_teams} teams that have no roster for current season."
         )
     return teams.data[teams.data.index.isin(teams_with_rosters)]
@@ -310,16 +310,13 @@ def teams_to_dump(release_date: datetime.date, teams: TeamRating) -> pd.DataFram
 
 # Reads teams and players for provided dates; finds tournaments for next release; calculates
 # new ratings and writes them to our DB.
-def calc_release(next_release_date: datetime.date, flag_verbose=None):
-    if flag_verbose is not None:
-        global verbose
-        verbose = flag_verbose
+def calc_release(next_release_date: datetime.date):
     old_release_date = tools.get_prev_release_date(next_release_date)
     old_release = models.Release.objects.get(date=old_release_date)
     initial_teams = get_team_rating(old_release.id)
     next_release, _ = models.Release.objects.get_or_create(date=next_release_date)
 
-    print(
+    logger.info(
         f"Making a step from release {old_release_date} (id {old_release.id}) to release {next_release_date} (id {next_release.id})"
     )
     initial_players = PlayerRating(release=old_release, release_for_squads=next_release)
@@ -354,7 +351,7 @@ def calc_release(next_release_date: datetime.date, flag_verbose=None):
 
     release_hash = calculate_hash(new_players, new_teams, tournaments)
     if release_hash != next_release.hash:
-        print("hashes are different, updating release")
+        logger.info("hashes are different, updating release")
         next_release.updated_at = timezone.now()
         next_release.hash = release_hash
         next_release.q = new_teams.q
@@ -362,20 +359,17 @@ def calc_release(next_release_date: datetime.date, flag_verbose=None):
 
 
 # Calculates all releases starting from FIRST_NEW_RELEASE until current date
-def calc_all_releases(first_to_calc: datetime.date, flag_verbose=None):
-    if flag_verbose is not None:
-        global verbose
-        verbose = flag_verbose
+def calc_all_releases(first_to_calc: datetime.date):
     next_release_date = first_to_calc
     time_started = datetime.datetime.now()
     n_releases_calculated = 0
     last_day_to_calc = datetime.date.today() + datetime.timedelta(days=7)
     while next_release_date <= last_day_to_calc:
-        calc_release(next_release_date=next_release_date, flag_verbose=flag_verbose)
+        calc_release(next_release_date=next_release_date)
         n_releases_calculated += 1
         next_release_date += datetime.timedelta(days=7)
     time_spent = datetime.datetime.now() - time_started
-    print("Done! Releases calculated:", n_releases_calculated)
-    print(
+    logger.info(f"Done! Releases calculated: {n_releases_calculated}")
+    logger.info(
         f"Total time spent: {time_spent}, time per release: {time_spent / n_releases_calculated}"
     )
