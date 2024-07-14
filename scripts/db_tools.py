@@ -2,9 +2,12 @@ import datetime
 from typing import Dict, List
 from django.db.models import F, Q
 from django.db import connection
+import logging
 import pandas as pd
 from b import models
 from .constants import SCHEMA_NAME
+
+logger = logging.getLogger(__name__)
 
 
 def fast_insert(table: str, data: List[Dict], batch_size: int = 5000):
@@ -17,7 +20,7 @@ def fast_insert(table: str, data: List[Dict], batch_size: int = 5000):
     """
     if not data:
         return
-    print(f"Inserting {len(data)} rows into {table}")
+    logger.debug(f"Inserting {len(data)} rows into {table}")
     columns = data[0].keys()
     columns_joined = ", ".join(columns)
 

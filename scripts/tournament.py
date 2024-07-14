@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import logging
 from typing import Any, Tuple, Set, List, Dict
 import numpy.typing as npt
 from .constants import (
@@ -17,18 +18,15 @@ from .constants import (
 from scripts import tools, roster_continuity
 from b import models
 
+logger = logging.getLogger(__name__)
+
 
 class EmptyTournamentException(Exception):
     pass
 
 
 class Tournament:
-    def __init__(
-        self,
-        trnmt_from_db: models.Tournament,
-        release: models.Release,
-        verbose: bool = False,
-    ):
+    def __init__(self, trnmt_from_db: models.Tournament, release: models.Release):
         self.coeff = self.tournament_type_to_coeff(trnmt_from_db.typeoft_id)
         self.id = trnmt_from_db.id
         self.release_id = release.id
@@ -38,12 +36,11 @@ class Tournament:
         )
 
         teams = {}
-        if verbose:
-            print(f"Loading tournament {self.id}...")
+        logger.debug(f"Loading tournament {self.id}...")
         for team_score in trnmt_from_db.team_score_set.select_related("team"):
             if team_score.position in (None, 0, 9999):
-                if self.is_in_maii_rating and verbose:
-                    print(
+                if self.is_in_maii_rating:
+                    logger.debug(
                         f"Tournament {self.id}: team {team_score.id} ({team_score.team.title}) has incorrect place {team_score.position}! Skipping this team."
                     )
                 continue
@@ -65,10 +62,9 @@ class Tournament:
 
         for team_player in trnmt_from_db.roster_set.all():
             if team_player.team_id not in teams:
-                if verbose:
-                    print(
-                        f"Tournament {self.id}, team {team_player.team_id}: player {team_player.player_id} is in roster but the team did not play there!"
-                    )
+                logger.debug(
+                    f"Tournament {self.id}, team {team_player.team_id}: player {team_player.player_id} is in roster but the team did not play there!"
+                )
                 continue
             teams[team_player.team_id]["teamMembers"].append(team_player.player_id)
             if team_player.flag == "Б":
@@ -88,7 +84,7 @@ class Tournament:
             if len(teams_without_players) == len(teams):
                 raise EmptyTournamentException("All teams have no players")
 
-            print(f"Adjusting for missing rosters in tournament {self.id}")
+            logger.info(f"Adjusting for missing rosters in tournament {self.id}")
             teams = self.adjust_for_missing_rosters(teams_without_players, teams)
 
         self.data = pd.DataFrame(teams.values())

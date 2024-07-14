@@ -139,24 +139,12 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "handlers": {
-        "file": {
-            "level": "DEBUG",
-            "class": "logging.FileHandler",
-            "filename": "django_queries.log",
-            "formatter": "verbose",
+        "console": {
+            "class": "logging.StreamHandler",
         },
     },
-    "formatters": {
-        "verbose": {
-            "format": "{levelname} {asctime} {module} {message}",
-            "style": "{",
-        },
-    },
-    "loggers": {
-        "django.db.backends": {
-            "handlers": ["file"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
     },
 }
