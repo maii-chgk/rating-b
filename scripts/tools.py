@@ -79,7 +79,7 @@ def get_releases_difference(release1: datetime.date, release2: datetime.date) ->
             )
         if (release >= FIRST_NEW_RELEASE) and (release.weekday() != THURSDAY):
             raise AssertionError(
-                f"{release} is before {FIRST_NEW_RELEASE} and is not on Thursday."
+                f"{release} is after {FIRST_NEW_RELEASE} and is not on Thursday."
             )
     if release1 <= LAST_OLD_RELEASE < FIRST_NEW_RELEASE <= release2:
         return (
