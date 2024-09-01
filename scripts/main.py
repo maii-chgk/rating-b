@@ -359,7 +359,9 @@ def calc_release(next_release_date: datetime.date):
 
 
 # Calculates all releases starting from FIRST_NEW_RELEASE until current date
-def calc_all_releases(first_to_calc: datetime.date, last_to_calc: datetime.date = datetime.date.today()):
+def calc_all_releases(
+    first_to_calc: datetime.date, last_to_calc: datetime.date = datetime.date.today()
+):
     next_release_date = first_to_calc
     time_started = datetime.datetime.now()
     n_releases_calculated = 0
