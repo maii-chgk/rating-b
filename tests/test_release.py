@@ -1,5 +1,5 @@
 import unittest
-from datetime import date
+from datetime import date, timedelta
 
 from dotenv import load_dotenv
 
@@ -9,7 +9,7 @@ import django
 
 django.setup()
 
-from scripts.main import calc_release
+from scripts.main import calc_release, calc_all_releases
 from b.models import (
     Team_rating,
     Tournament_in_release,
@@ -25,6 +25,7 @@ class TestReleases(unittest.TestCase):
     def setUpClass(cls):
         release_date = date(2021, 9, 16)
         calc_release(release_date)
+        calc_all_releases(release_date, release_date + timedelta(days=14))
         cls.release = Release.objects.get(date=release_date)
 
     def test_team_rating_values(self):
