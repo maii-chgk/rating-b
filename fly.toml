@@ -4,7 +4,7 @@
 #
 
 app = "rating-b"
-primary_region = "waw"
+primary_region = "ams"
 kill_signal = "SIGINT"
 kill_timeout = "5s"
 
@@ -13,7 +13,7 @@ kill_timeout = "5s"
 
 [env]
   PORT = "8000"
-  PRIMARY_REGION = "waw"
+  PRIMARY_REGION = "ams"
 
 [processes]
   cron = "supercronic /app/crontab"
